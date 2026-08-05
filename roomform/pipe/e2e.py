@@ -1,13 +1,18 @@
-"""End-to-end driver: scan -> EvidenceGrid -> PatchGraph -> objects ->
-SceneDocument, with per-stage wall-clock timings.
+"""End-to-end driver: scan -> SceneDocument, parallel + progressive.
+
+The DAG has two independent branches that run concurrently:
+
+  scan ──┬─ evidence -> shell completion ──────────┐
+         └─ lifting (Modal, spawned first) ─────────┼─ fuse -> scene.json
+                                                    │
+        (shell-only partial scene emitted as soon as the shell lands)
+
+Progress streams as NDJSON events on stdout (`stage`, `elapsed_s`,
+`artifact`) so a consumer can render incrementally: shell first —
+seconds — objects when lifting returns, QA last.
 
   uv run python -m roomform.pipe.e2e SCAN.ply OUT_DIR \
-      [--ckpt model.pt] [--proposals proposals.txt]
-
-Without --ckpt, a random-init ConvFormer is used — the shell output is
-NOISE (clearly marked in the scene doc's model_id); useful only for
-plumbing and timing until trained weights land. Without --proposals,
-lifting runs live on Modal (requires the modal extra + account).
+      [--ckpt model.pt] [--proposals proposals.txt] [--sequential]
 """
 
 from __future__ import annotations
@@ -21,6 +26,63 @@ from roomform.pipe.evidence.build import build_evidence
 from roomform.pipe.fuse import fuse
 from roomform.pipe.lifting.spatiallm import lift_from_proposals
 
+T0 = time.time()
+
+
+def emit(stage: str, **fields) -> None:
+    print(
+        json.dumps(
+            {"stage": stage, "elapsed_s": round(time.time() - T0, 1), **fields}
+        ),
+        flush=True,
+    )
+
+
+def _random_ckpt(out_dir: str, vox_m: float) -> str:
+    import torch
+
+    from roomform.model.config import ModelConfig
+    from roomform.model.convformer import PatchGraphConvFormer
+
+    cfg = ModelConfig(vox_m=vox_m)
+    path = os.path.join(out_dir, "RANDOM-INIT.pt")
+    torch.save(
+        {
+            "model": PatchGraphConvFormer(cfg).state_dict(),
+            "config": cfg.model_dump_json(),
+        },
+        path,
+    )
+    return path
+
+
+def _shell_branch(args, out_dir: str):
+    evidence = build_evidence(
+        args.scan, os.path.join(out_dir, "evidence.npz"), args.vox
+    )
+    emit("evidence.done", grid=list(evidence.shape))
+    ckpt = args.ckpt or _random_ckpt(out_dir, args.vox)
+
+    from roomform.inference.local import run as run_shell
+
+    shell = run_shell(evidence, ckpt, os.path.join(out_dir, "patchgraph.npz"))
+    emit("shell.done", model=shell.model_id)
+
+    # progressive: shell-only partial scene, before objects arrive
+    partial = fuse(
+        shell,
+        [],
+        args.scan,
+        evidence.origin,
+        os.path.join(out_dir, "scene.partial.json"),
+    )
+    emit(
+        "scene.partial",
+        artifact=os.path.join(out_dir, "scene.partial.json"),
+        floor_z=partial.floor_z,
+    )
+    return evidence, shell
+
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -29,82 +91,63 @@ def main() -> None:
     ap.add_argument("--ckpt", default="")
     ap.add_argument("--proposals", default="")
     ap.add_argument("--vox", type=float, default=0.08)
+    ap.add_argument("--sequential", action="store_true")
     args = ap.parse_args()
-    os.makedirs(args.out_dir, exist_ok=True)
-    timings: dict[str, float] = {}
+    out_dir = args.out_dir
+    os.makedirs(out_dir, exist_ok=True)
+    emit("start", scan=os.path.basename(args.scan))
 
-    t0 = time.time()
-    evidence = build_evidence(
-        args.scan, os.path.join(args.out_dir, "evidence.npz"), args.vox
-    )
-    timings["evidence_s"] = round(time.time() - t0, 1)
+    proposals_path = args.proposals or os.path.join(out_dir, "proposals.txt")
+    lifting_handle = None
+    app_ctx = None
+    if not args.proposals:
+        # spawn lifting FIRST — it only needs the raw scan and is the
+        # long pole; it runs on Modal while the shell runs locally
+        import modal
 
-    ckpt = args.ckpt
-    if not ckpt:
-        import torch
-
-        from roomform.model.config import ModelConfig
-        from roomform.model.convformer import PatchGraphConvFormer
-
-        cfg = ModelConfig(vox_m=args.vox)
-        ckpt = os.path.join(args.out_dir, "RANDOM-INIT.pt")
-        torch.save(
-            {
-                "model": PatchGraphConvFormer(cfg).state_dict(),
-                "config": cfg.model_dump_json(),
-            },
-            ckpt,
-        )
-
-    t0 = time.time()
-    from roomform.inference.local import run as run_shell
-
-    shell = run_shell(
-        evidence, ckpt, os.path.join(args.out_dir, "patchgraph.npz")
-    )
-    timings["shell_s"] = round(time.time() - t0, 1)
-
-    t0 = time.time()
-    if args.proposals:
-        proposals_path = args.proposals
-    else:
         from roomform.inference.modal_adapter import StageApp
+        from roomform.pipe.lifting.modal_app import app as lifting_app
         from roomform.pipe.lifting.modal_app import lift
 
-        stage = StageApp("lifting")
-        proposals_path = os.path.join(args.out_dir, "proposals.txt")
-        with __import__("modal").enable_output():
-            stage.run_file(lift, args.scan, proposals_path)
-    frame_shift = evidence.origin
-    objects = lift_from_proposals(proposals_path, frame_shift)
-    timings["lifting_s"] = round(time.time() - t0, 1)
+        data = StageApp.read_input(args.scan)
+        app_ctx = modal.enable_output(), lifting_app.run()
+        app_ctx[0].__enter__()
+        app_ctx[1].__enter__()
+        lifting_handle = lift.spawn(data)
+        emit("lifting.spawned")
 
-    t0 = time.time()
+    try:
+        if args.sequential and lifting_handle is not None:
+            StageApp.write_output(proposals_path, lifting_handle.get())
+            emit("lifting.done", objects_file=proposals_path)
+            lifting_handle = None
+        evidence, shell = _shell_branch(args, out_dir)
+
+        if lifting_handle is not None:
+            StageApp.write_output(proposals_path, lifting_handle.get())
+            emit("lifting.done", objects_file=proposals_path)
+    finally:
+        if app_ctx is not None:
+            app_ctx[1].__exit__(None, None, None)
+            app_ctx[0].__exit__(None, None, None)
+
+    objects = lift_from_proposals(proposals_path, evidence.origin)
     doc = fuse(
         shell,
         objects,
         args.scan,
-        frame_shift,
-        os.path.join(args.out_dir, "scene.json"),
+        evidence.origin,
+        os.path.join(out_dir, "scene.json"),
     )
-    timings["fuse_s"] = round(time.time() - t0, 1)
-    timings["total_s"] = round(sum(timings.values()), 1)
-
     flagged = sum(
         1 for o in doc.objects if (o.qa.get("wall_leak_pts") or 0) > 50
     )
-    print(
-        json.dumps(
-            {
-                "timings": timings,
-                "grid": evidence.shape,
-                "objects": len(doc.objects),
-                "wall_leak_flagged": flagged,
-                "model": shell.model_id,
-                "scene": os.path.join(args.out_dir, "scene.json"),
-            },
-            indent=1,
-        )
+    emit(
+        "scene.done",
+        artifact=os.path.join(out_dir, "scene.json"),
+        objects=len(doc.objects),
+        wall_leak_flagged=flagged,
+        total_s=round(time.time() - T0, 1),
     )
 
 
