@@ -18,10 +18,10 @@ from collections.abc import Iterable
 import numpy as np
 import torch
 
+from research.train.config import TrainConfig
+from research.train.losses import total_loss
+from roomform.eval import evaluate
 from roomform.model.convformer import PatchGraphConvFormer
-from roomform.train.config import TrainConfig
-from roomform.train.eval import evaluate
-from roomform.train.losses import total_loss
 
 
 def _log(path: str, rec: dict) -> None:

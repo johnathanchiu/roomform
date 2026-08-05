@@ -1,5 +1,6 @@
 """Parity enforcement: the packaged architecture must load and run
-every released checkpoint, and a fresh checkpoint must round-trip."""
+every checkpoint written in the documented format (the read side lives
+in roomform.inference.local; research/train writes the same shape)."""
 
 from __future__ import annotations
 
@@ -11,23 +12,22 @@ torch = pytest.importorskip("torch")
 def test_checkpoint_roundtrip(tmp_path):
     from roomform.model.config import ModelConfig
     from roomform.model.convformer import PatchGraphConvFormer
-    from roomform.train.config import TrainConfig
-    from roomform.train.loop import save_checkpoint
 
-    cfg = TrainConfig(
-        model=ModelConfig(
-            attn_depth=1, stem_dim=16, attn_dim=32, attn_heads=4, head_dim=16
-        )
+    cfg = ModelConfig(
+        attn_depth=1, stem_dim=16, attn_dim=32, attn_heads=4, head_dim=16
     )
-    model = PatchGraphConvFormer(cfg.model)
-    opt = torch.optim.AdamW(model.parameters())
-    save_checkpoint(str(tmp_path), model, opt, 0, cfg)
+    model = PatchGraphConvFormer(cfg)
+    path = tmp_path / "checkpoint.pt"
+    torch.save(
+        {"model": model.state_dict(), "config": cfg.model_dump_json()},
+        path,
+    )
 
     from roomform.inference.local import load_checkpoint
 
-    loaded, loaded_cfg = load_checkpoint(str(tmp_path / "checkpoint.pt"))
-    assert loaded_cfg == cfg.model
-    x = torch.zeros(1, cfg.model.in_channels, 8, 8, 8)
+    loaded, loaded_cfg = load_checkpoint(str(path))
+    assert loaded_cfg == cfg
+    x = torch.zeros(1, cfg.in_channels, 8, 8, 8)
     nodes, edges = loaded(x)
     assert nodes.shape == (1, 3, 8, 8, 8)
     assert edges.shape == (1, 13, 8, 8, 8)
@@ -36,7 +36,7 @@ def test_checkpoint_roundtrip(tmp_path):
 def test_eval_metrics_shapes():
     import numpy as np
 
-    from roomform.train.eval import evaluate
+    from roomform.eval import evaluate
 
     rng = np.random.default_rng(0)
     node = rng.random((3, 8, 8, 8)).astype(np.float32)

@@ -4,11 +4,14 @@ copies. Config overlays + package imports; no local model code."""
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import yaml
 
-from roomform.train.config import TrainConfig
-from roomform.train.loop import train
+from research.train.config import TrainConfig
+from research.train.loop import train
 
 
 def main(data_dir: str, out_dir: str) -> None:
