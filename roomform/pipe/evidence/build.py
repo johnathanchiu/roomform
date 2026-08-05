@@ -63,18 +63,22 @@ def build_evidence(
     scan_path: str, out_npz: str, vox_m: float = VOX
 ) -> EvidenceGrid:
     pts, colors, normals = _load_scan(scan_path)
-    origin = pts.min(0)
+    # robust grounding: scanner outlier tails (junk points below the
+    # real floor) must not set the grid origin — the model was trained
+    # with the floor at the grid bottom. Points outside the robust
+    # bounds fall off the grid via the voxelizer's validity mask.
+    origin = np.percentile(pts, 0.1, axis=0).astype(np.float32)
+    top = np.percentile(pts, 99.9, axis=0).astype(np.float32)
     pts = pts - origin
     if normals is None:
         pts, colors = _dedup_2cm(pts, colors)
         normals = _pca_normals(pts)
 
     # aligned to a multiple of 8 so the UNet needs no crop bookkeeping
+    extent = top - origin
     shape = tuple(
         int(v)
-        for v in (np.ceil((np.ceil(pts.max(0) / vox_m) + 1) / 8) * 8).astype(
-            int
-        )
+        for v in (np.ceil((np.ceil(extent / vox_m) + 1) / 8) * 8).astype(int)
     )
     raw = {"pts": pts, "pts_normal": normals}
     if colors is not None:

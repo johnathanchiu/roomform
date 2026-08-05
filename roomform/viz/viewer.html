@@ -27,10 +27,9 @@
     #toolbar button { flex:1; border:1px solid #444; background:#26292f; color:#ccc; border-radius:6px;
                       padding:5px 0; cursor:pointer; font:11px ui-monospace,monospace; }
     #toolbar button:hover { background:#2f333b; }
-    #toolbar button.on { background:#3a4a68; color:#fff; border-color:#5a6a88; }
     #save { border-color:#3c6; color:#8ec; }
     #save.dirty { background:#254435; }
-    #hint { padding:6px 4px 0; color:#778; font-size:10px; }
+    #hint { padding:6px 4px 0; color:#778; font-size:10px; line-height:1.5; }
   </style>
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}</script>
 </head>
@@ -38,12 +37,9 @@
 <div id="scene"></div>
 <div id="panel">
   <div class="title"><strong>roomform</strong><span id="subtitle">pick a scene</span></div>
-  <div id="toolbar">
-    <button id="mode-move" class="on">move (g)</button>
-    <button id="mode-rotate">rotate (r)</button>
-    <button id="save">save</button>
-  </div>
-  <div id="hint">click a box or list row to select; esc deselects</div>
+  <div id="toolbar"><button id="save">save</button></div>
+  <div id="hint">drag object: slide on floor &middot; shift-drag: raise/lower<br>
+    Q/E rotate &middot; WASD nudge &middot; esc deselect</div>
   <h2>scenes</h2><div id="scenes"></div>
   <h2>layers</h2><div id="groups"></div>
   <h2>objects</h2><div id="objects"></div>
@@ -51,7 +47,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -72,11 +67,6 @@ addEventListener('resize', () => {
 });
 (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene3, camera); })();
 
-const gizmo = new TransformControls(camera, renderer.domElement);
-gizmo.addEventListener('dragging-changed', e => { controls.enabled = !e.value; });
-gizmo.addEventListener('objectChange', () => { markDirty(); syncSelected(); });
-scene3.add(gizmo.getHelper());
-
 let current = null;      // GLB root
 let doc = null;          // scene.json
 let sceneName = null;
@@ -90,23 +80,6 @@ function markDirty() {
   document.getElementById('save').classList.add('dirty');
 }
 
-function setMode(mode) {
-  gizmo.setMode(mode);
-  // headings are z-yaw only
-  const rot = mode === 'rotate';
-  gizmo.showX = !rot; gizmo.showY = !rot; gizmo.showZ = true;
-  document.getElementById('mode-move').classList.toggle('on', mode === 'translate');
-  document.getElementById('mode-rotate').classList.toggle('on', mode === 'rotate');
-}
-document.getElementById('mode-move').onclick = () => setMode('translate');
-document.getElementById('mode-rotate').onclick = () => setMode('rotate');
-addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'g') setMode('translate');
-  if (e.key === 'r') setMode('rotate');
-  if (e.key === 'Escape') select(-1);
-});
-
 function syncSelected() {
   if (selected < 0) return;
   const g = boxes[selected], o = doc.objects[selected];
@@ -114,9 +87,16 @@ function syncSelected() {
   o.heading = g.rotation.z;
 }
 
+function setHighlight(i, on) {
+  if (i < 0) return;
+  const line = boxes[i].userData.line;
+  line.material.color.set(on ? 0xffffff : boxes[i].userData.color);
+}
+
 function select(i) {
+  setHighlight(selected, false);
   selected = i;
-  if (i < 0) gizmo.detach(); else gizmo.attach(boxes[i]);
+  setHighlight(i, true);
   document.querySelectorAll('.obj').forEach((el, k) =>
     el.classList.toggle('selected', k === i));
 }
@@ -132,20 +112,87 @@ function makeBox(o, i) {
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.07, depthWrite: false }));
   fill.userData.index = i;
   g.add(fill);
-  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),
-    new THREE.LineBasicMaterial({ color })));
+  const line = new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color }));
+  g.add(line);
+  g.userData.line = line;
+  g.userData.color = color;
   return g;
 }
 
+// ---- gravity-aligned editing -----------------------------------------
+// Drag slides the object in the floor plane (z locked); shift-drag maps
+// vertical pointer motion to z only. Rotation is always around gravity.
 const ray = new THREE.Raycaster();
-renderer.domElement.addEventListener('pointerdown', e => {
-  if (gizmo.dragging || !boxGroup) return;
+const drag = { active: false, vertical: false, planeZ: 0, offset: new THREE.Vector2(), moved: false };
+
+function pointerRay(e) {
   ray.setFromCamera(new THREE.Vector2(
     (e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
-  const hits = ray.intersectObjects(boxGroup.children, true)
+  return ray;
+}
+
+function floorHit(e, z) {
+  const r = pointerRay(e).ray;
+  const t = (z - r.origin.z) / r.direction.z;
+  return t > 0 ? r.origin.clone().addScaledVector(r.direction, t) : null;
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (!boxGroup || e.button !== 0) return;
+  const hits = pointerRay(e).intersectObjects(boxGroup.children, true)
     .filter(h => h.object.userData.index !== undefined);
-  if (hits.length) select(hits[0].object.userData.index);
+  if (!hits.length) return;
+  const i = hits[0].object.userData.index;
+  select(i);
+  const g = boxes[i];
+  drag.active = true;
+  drag.moved = false;
+  drag.vertical = e.shiftKey;
+  drag.planeZ = g.position.z;
+  const hit = floorHit(e, drag.planeZ);
+  if (hit) drag.offset.set(g.position.x - hit.x, g.position.y - hit.y);
+  controls.enabled = false;
+  renderer.domElement.setPointerCapture(e.pointerId);
 });
+
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!drag.active || selected < 0) return;
+  const g = boxes[selected];
+  if (drag.vertical) {
+    const dist = camera.position.distanceTo(g.position);
+    g.position.z -= e.movementY * 0.0012 * dist;
+  } else {
+    const hit = floorHit(e, drag.planeZ);
+    if (hit) { g.position.x = hit.x + drag.offset.x; g.position.y = hit.y + drag.offset.y; }
+  }
+  drag.moved = true;
+  markDirty(); syncSelected();
+});
+
+addEventListener('pointerup', () => {
+  drag.active = false;
+  controls.enabled = true;
+});
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') { select(-1); return; }
+  if (selected < 0) return;
+  const g = boxes[selected];
+  const step = e.shiftKey ? 0.32 : 0.08;
+  const k = e.key.toLowerCase();
+  if (k === 'q') g.rotation.z += Math.PI / 12;
+  else if (k === 'e') g.rotation.z -= Math.PI / 12;
+  else if (k === 'w') g.position.y += step;
+  else if (k === 's') g.position.y -= step;
+  else if (k === 'a') g.position.x -= step;
+  else if (k === 'd') g.position.x += step;
+  else return;
+  e.preventDefault();
+  markDirty(); syncSelected();
+});
+// ----------------------------------------------------------------------
 
 document.getElementById('save').onclick = async () => {
   if (!doc) return;
