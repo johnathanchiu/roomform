@@ -7,6 +7,7 @@ dependencies = ["numpy", "pydantic>=2"]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest"]
+agent = ["anthropic", "openai", "pydantic-settings", "httpx", "websockets", "google-genai"]
 
 [tool.ruff]
 line-length = 79
