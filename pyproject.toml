@@ -1,0 +1,12 @@
+[project]
+name = "roomform"
+version = "0.1.0"
+description = "Indoor structure completion: scan -> tri-state evidence -> shell patch-graph -> scene document"
+requires-python = ">=3.11"
+dependencies = ["numpy", "pydantic>=2"]
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest"]
+
+[tool.ruff]
+line-length = 79
