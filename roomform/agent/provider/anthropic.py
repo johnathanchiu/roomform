@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from roomform.agent.errors import ModelError
@@ -478,7 +478,7 @@ def _response_cost(
 def _prices_for(model: str, *, today: date | None = None) -> _Prices | None:
     if (
         model == "claude-sonnet-5"
-        and (today or datetime.now(timezone.utc).date())
+        and (today or datetime.now(UTC).date())
         >= _SONNET_5_STANDARD_PRICING_START
     ):
         return _SONNET_5_STANDARD_PRICES
