@@ -5,3 +5,5 @@ artifacts/
 *.ply
 *.pt
 .env
+.venv/
+
