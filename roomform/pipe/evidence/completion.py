@@ -11,12 +11,14 @@ from __future__ import annotations
 from roomform.contracts import EvidenceGrid, PatchGraph
 
 
-def complete_shell(evidence: EvidenceGrid, model_id: str = "") -> PatchGraph:
-    """Live inference entrypoint (model migrates in behind this)."""
-    raise NotImplementedError(
-        "patch-graph model not yet migrated; use load_patchgraph() on "
-        "exported predictions"
-    )
+def complete_shell(
+    evidence: EvidenceGrid, ckpt_path: str, out_npz: str, device: str = "cpu"
+) -> PatchGraph:
+    """Live inference via roomform.inference.local (lazy torch import
+    so the contracts-only install can still import this module)."""
+    from roomform.inference.local import run
+
+    return run(evidence, ckpt_path, out_npz, device=device)
 
 
 def load_patchgraph(
