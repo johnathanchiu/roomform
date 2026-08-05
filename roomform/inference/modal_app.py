@@ -10,6 +10,9 @@ account; local inference needs neither.
 from __future__ import annotations
 
 import modal
+import numpy as np
+
+from roomform.contracts import EvidenceGrid
 
 app = modal.App("roomform-inference")
 volume = modal.Volume.from_name("roomform-inference", create_if_missing=True)
@@ -33,7 +36,6 @@ def infer(
 ) -> str:
     """Paths are volume-relative; returns the volume-relative output
     npz path. The PatchGraph header is reconstructed client-side."""
-    from roomform.contracts import EvidenceGrid
     from roomform.inference.local import run
 
     evidence = EvidenceGrid(
@@ -51,8 +53,6 @@ def infer(
 
 @app.local_entrypoint()
 def main(evidence: str, ckpt: str, vox_m: float = 0.08):
-    import numpy as np
-
     d = np.load(evidence)
     shape = tuple(int(s) for s in d["occ"].shape)
     with volume.batch_upload(force=True) as batch:

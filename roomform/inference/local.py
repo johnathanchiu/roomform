@@ -9,16 +9,14 @@ import json
 import os
 
 import numpy as np
+import torch
 
 from roomform.contracts import EvidenceGrid, PatchGraph
 from roomform.model.config import ModelConfig
+from roomform.model.convformer import PatchGraphConvFormer
 
 
 def load_checkpoint(path: str, device: str = "cpu"):
-    import torch
-
-    from roomform.model.convformer import PatchGraphConvFormer
-
     ck = torch.load(path, map_location=device, weights_only=True)
     cfg = (
         ModelConfig(**json.loads(ck["config"]))
@@ -63,8 +61,6 @@ def run(
     node_threshold: float = 0.5,
     edge_threshold: float = 0.5,
 ) -> PatchGraph:
-    import torch
-
     model, _cfg = load_checkpoint(ckpt_path, device)
     x = torch.from_numpy(build_input(evidence))[None].to(device)
     pad = [

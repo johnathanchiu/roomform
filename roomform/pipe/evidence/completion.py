@@ -11,10 +11,7 @@ from __future__ import annotations
 from roomform.contracts import EvidenceGrid, PatchGraph
 
 
-def complete_shell(
-    evidence: EvidenceGrid,
-    model_id: str = "",
-) -> PatchGraph:
+def complete_shell(evidence: EvidenceGrid, model_id: str = "") -> PatchGraph:
     """Live inference entrypoint (model migrates in behind this)."""
     raise NotImplementedError(
         "patch-graph model not yet migrated; use load_patchgraph() on "

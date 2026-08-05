@@ -13,9 +13,12 @@ match — so archived reconstructions plug into fresh scenes.
 from __future__ import annotations
 
 import glob
+import json
 import os
+import urllib.request
 
 import numpy as np
+import trimesh
 
 from roomform.contracts import SceneObject
 
@@ -54,10 +57,6 @@ def adopt_meshes(
     carrying a grid-frame center; falls back to mesh centroid.
     Returns number of attachments.
     """
-    import json
-
-    import trimesh
-
     candidates = []
     for fp in sorted(glob.glob(os.path.join(aligned_dir, "*.glb"))):
         meta = fp.replace(".glb", "-meta.json")
@@ -88,9 +87,7 @@ def reconstruct_live(
 ) -> str:
     """Live SAM3D call (requires FAL_KEY). Kept import-lazy so the
     pipeline works offline with adopt_meshes."""
-    import urllib.request
-
-    import fal_client
+    import fal_client  # optional service dep — lazy by design
 
     handle = fal_client.submit(
         SAM3D_APP,
