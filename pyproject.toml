@@ -10,6 +10,7 @@ dev = ["ruff", "pytest", "pyyaml"]
 agent = ["anthropic", "openai", "pydantic-settings", "httpx", "websockets", "google-genai"]
 model = ["torch", "scipy"]
 modal = ["modal"]
+fal = ["fal-client>=0.5", "pillow>=10"]
 
 [tool.ruff]
 line-length = 79

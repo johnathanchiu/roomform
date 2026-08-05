@@ -191,6 +191,25 @@ async function loadScene(name) {
   });
   scene3.add(boxGroup);
 
+  // adopted/reconstructed meshes are raw-frame; shift to grid frame and
+  // attach inside each box group so edits carry the mesh along
+  const meshLayer = { visible: true, items: [] };
+  const fs = doc.frame_shift || [0, 0, 0];
+  const meshLoader = new GLTFLoader();
+  doc.objects.forEach((o, i) => {
+    if (!o.mesh_path) return;
+    meshLoader.loadAsync(`/artifacts/${name}/${o.mesh_path}`).then(g => {
+      if (sceneName !== name) return; // scene switched mid-load
+      const m = g.scene;
+      m.position.set(-fs[0], -fs[1], -fs[2]);
+      scene3.add(m);
+      m.updateMatrixWorld(true);
+      boxes[i].attach(m);
+      m.visible = meshLayer.visible;
+      meshLayer.items.push(m);
+    });
+  });
+
   const box = new THREE.Box3().setFromObject(current);
   const c = box.getCenter(new THREE.Vector3());
   controls.target.copy(c);
@@ -216,6 +235,16 @@ async function loadScene(name) {
     if (!e.target.checked) select(-1);
   };
   gdiv.appendChild(boxLabel);
+  if (doc.objects.some(o => o.mesh_path)) {
+    const meshLabel = document.createElement('label');
+    meshLabel.className = 'grp';
+    meshLabel.innerHTML = `<input type="checkbox" checked><span class="dot" style="background:#7ec8a0"></span>object meshes`;
+    meshLabel.querySelector('input').onchange = e => {
+      meshLayer.visible = e.target.checked;
+      meshLayer.items.forEach(m => { m.visible = e.target.checked; });
+    };
+    gdiv.appendChild(meshLabel);
+  }
 
   const odiv = document.getElementById('objects');
   odiv.innerHTML = '';
