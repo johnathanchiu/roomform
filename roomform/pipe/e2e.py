@@ -87,13 +87,14 @@ def _shell_branch(args, out_dir: str):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("scan")
-    ap.add_argument("out_dir")
+    ap.add_argument("out_dir", nargs="?", default="")
     ap.add_argument("--ckpt", default="")
     ap.add_argument("--proposals", default="")
     ap.add_argument("--vox", type=float, default=0.08)
     ap.add_argument("--sequential", action="store_true")
     args = ap.parse_args()
-    out_dir = args.out_dir
+    scan_stem = os.path.splitext(os.path.basename(args.scan))[0]
+    out_dir = args.out_dir or os.path.join("artifacts", scan_stem)
     os.makedirs(out_dir, exist_ok=True)
     emit("start", scan=os.path.basename(args.scan))
 
@@ -139,6 +140,14 @@ def main() -> None:
         evidence.origin,
         os.path.join(out_dir, "scene.json"),
     )
+    from roomform.viz.export import export_glb
+
+    export_glb(
+        doc,
+        os.path.join(out_dir, "scene.glb"),
+        os.path.join(out_dir, "evidence.npz"),
+    )
+    emit("glb.done", artifact=os.path.join(out_dir, "scene.glb"))
     flagged = sum(
         1 for o in doc.objects if (o.qa.get("wall_leak_pts") or 0) > 50
     )

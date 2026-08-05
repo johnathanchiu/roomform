@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>roomform scene viewer</title>
+  <style>
+    html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#1c1e22; color:#ddd;
+                font:12px -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif; }
+    #scene { position:fixed; inset:0; }
+    #panel { position:fixed; z-index:10; left:10px; top:10px; bottom:10px; width:280px; overflow:auto;
+             background:rgba(30,32,38,.92); border:1px solid #333; border-radius:12px; padding:10px; }
+    h2 { margin:10px 0 4px; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#8a8f98; }
+    label.grp { display:flex; gap:6px; align-items:center; padding:2px 0; cursor:pointer; }
+    .dot { width:8px; height:8px; border-radius:50%; flex:none; }
+    .scene-link { display:block; width:100%; border:0; background:transparent; color:#ccc; text-align:left;
+                  padding:3px 6px; border-radius:6px; cursor:pointer; font:11px ui-monospace,monospace; }
+    .scene-link:hover { background:#2c2f36; }
+    .scene-link.active { background:#3a4a68; color:#fff; }
+    .obj { padding:2px 6px; font:10px ui-monospace,monospace; color:#bbb; }
+    .obj .flag { color:#e06666; }
+    .title { padding:4px 4px 10px; border-bottom:1px solid #3a3d44; }
+    .title strong { display:block; color:#fff; font-size:14px; }
+    .title span { color:#9aa; }
+  </style>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="scene"></div>
+<div id="panel">
+  <div class="title"><strong>roomform</strong><span id="subtitle">pick a scene</span></div>
+  <h2>scenes</h2><div id="scenes"></div>
+  <h2>layers</h2><div id="groups"></div>
+  <h2>objects</h2><div id="objects"></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.getElementById('scene').appendChild(renderer.domElement);
+const scene3 = new THREE.Scene();
+scene3.background = new THREE.Color(0x1c1e22);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 500);
+camera.position.set(8, -8, 6); camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, renderer.domElement);
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+(function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene3, camera); })();
+
+let current = null;
+
+async function loadScene(name) {
+  document.querySelectorAll('.scene-link').forEach(el =>
+    el.classList.toggle('active', el.dataset.name === name));
+  if (current) { scene3.remove(current); current = null; }
+  document.getElementById('subtitle').textContent = name;
+
+  const doc = await (await fetch(`/artifacts/${name}/scene.json`)).json();
+  const gltf = await new GLTFLoader().loadAsync(`/artifacts/${name}/scene.glb`);
+  current = gltf.scene;
+  current.traverse(o => { if (o.isPoints) o.material.size = 0.035; });
+  scene3.add(current);
+
+  const box = new THREE.Box3().setFromObject(current);
+  const c = box.getCenter(new THREE.Vector3());
+  controls.target.copy(c);
+  camera.position.set(c.x + 9, c.y - 9, c.z + 7);
+
+  const groups = [];
+  current.traverse(o => { if (o.isPoints) groups.push(o); });
+  const gdiv = document.getElementById('groups');
+  gdiv.innerHTML = '';
+  for (const g of groups) {
+    const color = '#' + g.material.color.getHexString();
+    const label = document.createElement('label');
+    label.className = 'grp';
+    label.innerHTML = `<input type="checkbox" checked><span class="dot" style="background:${color}"></span>${g.name || g.parent.name}`;
+    label.querySelector('input').onchange = e => { g.visible = e.target.checked; };
+    gdiv.appendChild(label);
+  }
+
+  const odiv = document.getElementById('objects');
+  odiv.innerHTML = '';
+  for (const o of doc.objects) {
+    const leak = (o.qa && o.qa.wall_leak_pts) || 0;
+    const row = document.createElement('div');
+    row.className = 'obj';
+    row.innerHTML = `${o.cls} <span class="${leak > 50 ? 'flag' : ''}">${leak > 50 ? `leak:${leak}` : ''}</span>`;
+    odiv.appendChild(row);
+  }
+}
+
+const scenes = await (await fetch('/api/scenes')).json();
+const sdiv = document.getElementById('scenes');
+for (const name of scenes) {
+  const b = document.createElement('button');
+  b.className = 'scene-link'; b.dataset.name = name; b.textContent = name;
+  b.onclick = () => loadScene(name);
+  sdiv.appendChild(b);
+}
+if (scenes.length) loadScene(scenes[0]);
+</script>
+</body>
+</html>
