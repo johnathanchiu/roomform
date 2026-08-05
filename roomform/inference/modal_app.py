@@ -1,32 +1,27 @@
 """Modal adapter: remote GPU home for roomform.inference.local.run.
 
-Thin by design — all logic lives in inference/local.py; this file only
-declares infrastructure. Requires the `modal` extra and a Modal
-account; local inference needs neither.
+Thin by design — all logic lives in inference/local.py; conventions
+(app naming, volume, GPU defaults) come from roomform.modal_adapter.
+Requires the `modal` extra and a Modal account; local inference needs
+neither.
 
   modal run -m roomform.inference.modal_app --evidence <npz> --ckpt <pt>
 """
 
 from __future__ import annotations
 
-import modal
 import numpy as np
 
 from roomform.contracts import EvidenceGrid
+from roomform.inference.modal_adapter import StageApp, torch_image
 
-app = modal.App("roomform-inference")
-volume = modal.Volume.from_name("roomform-inference", create_if_missing=True)
+stage = StageApp("inference")
+app = stage.app  # `modal run` discovers this name
 
-image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install("torch", "numpy", "pydantic")
-    .add_local_python_source("roomform")
-)
-
-VOL = "/vol"
+image = torch_image(with_roomform=True)
 
 
-@app.function(image=image, gpu="L4", timeout=1800, volumes={VOL: volume})
+@stage.gpu(image=image, timeout=1800, with_volume=True)
 def infer(
     evidence_npz: str,
     ckpt: str,
@@ -39,23 +34,23 @@ def infer(
     from roomform.inference.local import run
 
     evidence = EvidenceGrid(
-        npz_path=f"{VOL}/{evidence_npz}",
+        npz_path=f"{stage.VOL}/{evidence_npz}",
         vox_m=vox_m,
         origin=origin,
         shape=shape,
         visibility_source="synthesized",
     )
     out = evidence_npz.replace(".npz", ".patchgraph.npz")
-    run(evidence, f"{VOL}/{ckpt}", f"{VOL}/{out}", device="cuda")
-    volume.commit()
+    run(evidence, f"{stage.VOL}/{ckpt}", f"{stage.VOL}/{out}", device="cuda")
+    stage.volume.commit()
     return out
 
 
-@app.local_entrypoint()
+@stage.entrypoint()
 def main(evidence: str, ckpt: str, vox_m: float = 0.08):
     d = np.load(evidence)
     shape = tuple(int(s) for s in d["occ"].shape)
-    with volume.batch_upload(force=True) as batch:
+    with stage.volume.batch_upload(force=True) as batch:
         batch.put_file(evidence, f"in/{evidence.split('/')[-1]}")
         batch.put_file(ckpt, f"ckpt/{ckpt.split('/')[-1]}")
     out = infer.remote(

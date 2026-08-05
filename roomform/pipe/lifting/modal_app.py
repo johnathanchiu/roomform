@@ -3,8 +3,8 @@
 Runs SpatialLM 1.1 (Qwen-0.5B, ARKitScenes-SFT) on a scene point cloud
 and returns the structured-language layout ("Bbox(...)" lines), which
 ``roomform.pipe.lifting.spatiallm.lift_from_proposals`` parses into
-SceneObjects. Image pins a known-good SpatialLM commit and pre-bakes
-the model weights so cold starts are container-boot only.
+SceneObjects. Only the image layers and the function body live here —
+app/GPU/file conventions come from ``roomform.inference.modal_adapter``.
 
   modal run -m roomform.pipe.lifting.modal_app \
       --point-cloud scan.ply --out proposals.txt
@@ -14,77 +14,59 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import modal
+from roomform.inference.modal_adapter import StageApp, torch_image
 
 SPATIALLM_COMMIT = "8913c44d84a450c53e9340b13317f8cf7144a738"
 MODEL_ID = "ysmao/SpatialLM1.1-Qwen-0.5B-ARKitScenes-SFT"
-MAX_POINT_CLOUD_BYTES = 128 * 1024 * 1024
 
-app = modal.App("roomform-lifting")
+stage = StageApp("lifting")
+app = stage.app  # `modal run` discovers this name
 
-image = (
-    modal.Image.from_registry("pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel")
-    .env(
-        {
-            "DEBIAN_FRONTEND": "noninteractive",
-            "TZ": "Etc/UTC",
-            "HF_HUB_DISABLE_TELEMETRY": "1",
-            "MAX_JOBS": "4",
-            "PYTHONPATH": "/opt/SpatialLM",
-        }
-    )
-    .apt_install(
-        "git", "build-essential", "libgl1", "libglib2.0-0", "ninja-build"
-    )
-    .pip_install(
-        "transformers>=4.41.2,<=4.46.1",
-        "safetensors>=0.4.5",
-        "pandas>=2.2.3",
-        "einops>=0.8.1",
-        "numpy>=1.26,<2",
-        "scipy>=1.15.2",
-        "scikit-learn>=1.6.1",
-        "toml>=0.10.2",
-        "tokenizers>=0.19.0,<0.20.4",
-        "huggingface_hub>=0.25.0",
-        "shapely>=2.0.7",
-        "bbox>=0.9.4",
-        "terminaltables>=3.1.10",
-        "open3d>=0.18.0",
-        "trimesh>=4.0,<5",
-        "pydantic>=2.0",
-        "addict>=2.4.0",
-        "timm",
-        "spconv-cu120",
-        "tqdm",
-    )
-    .run_commands(
-        "pip install torch-scatter "
-        "-f https://data.pyg.org/whl/torch-2.4.0+cu124.html",
+image = torch_image(
+    "transformers>=4.41.2,<=4.46.1",
+    "safetensors>=0.4.5",
+    "pandas>=2.2.3",
+    "einops>=0.8.1",
+    "numpy>=1.26,<2",
+    "scipy>=1.15.2",
+    "scikit-learn>=1.6.1",
+    "toml>=0.10.2",
+    "tokenizers>=0.19.0,<0.20.4",
+    "huggingface_hub>=0.25.0",
+    "shapely>=2.0.7",
+    "bbox>=0.9.4",
+    "terminaltables>=3.1.10",
+    "open3d>=0.18.0",
+    "trimesh>=4.0,<5",
+    "pydantic>=2.0",
+    "addict>=2.4.0",
+    "timm",
+    "spconv-cu120",
+    "tqdm",
+    apt=("git", "build-essential", "libgl1", "libglib2.0-0", "ninja-build"),
+    env={"MAX_JOBS": "4", "PYTHONPATH": "/opt/SpatialLM"},
+    run_commands=(
+        (
+            "pip install torch-scatter "
+            "-f https://data.pyg.org/whl/torch-2.4.0+cu124.html"
+        ),
         "pip install flash-attn --no-build-isolation",
-        "git clone https://github.com/manycore-research/SpatialLM.git "
-        "/opt/SpatialLM",
+        (
+            "git clone https://github.com/manycore-research/SpatialLM.git "
+            "/opt/SpatialLM"
+        ),
         f"cd /opt/SpatialLM && git checkout {SPATIALLM_COMMIT}",
-        'python -c "from huggingface_hub import snapshot_download; '
-        f"snapshot_download('{MODEL_ID}')\"",
-    )
+        (
+            'python -c "from huggingface_hub import snapshot_download; '
+            f"snapshot_download('{MODEL_ID}')\""
+        ),
+    ),
 )
 
 
-@app.function(
-    image=image,
-    gpu="L4",
-    timeout=10 * 60,
-    retries=0,
-    max_containers=1,
-    scaledown_window=2,
-)
+@stage.gpu(image=image, retries=0, max_containers=1, scaledown_window=2)
 def lift(point_cloud_bytes: bytes, detect_type: str = "object") -> str:
     """Point cloud bytes (ply) -> SpatialLM structured-language layout."""
-    if not point_cloud_bytes:
-        raise ValueError("point cloud is empty")
-    if len(point_cloud_bytes) > MAX_POINT_CLOUD_BYTES:
-        raise ValueError("point cloud exceeds the 128 MiB limit")
     if detect_type not in {"all", "arch", "object"}:
         raise ValueError(f"unsupported detection type: {detect_type}")
 
@@ -137,14 +119,6 @@ def lift(point_cloud_bytes: bytes, detect_type: str = "object") -> str:
         return layout.to_language_string()
 
 
-@app.local_entrypoint()
+@stage.entrypoint()
 def main(point_cloud: str, out: str, detect_type: str = "object") -> None:
-    source = Path(point_cloud)
-    data = source.read_bytes()
-    if len(data) > MAX_POINT_CLOUD_BYTES:
-        raise ValueError("point cloud exceeds the 128 MiB limit")
-    prediction = lift.remote(data, detect_type)
-    output = Path(out)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(prediction, encoding="utf-8")
-    print(f"wrote SpatialLM proposals to {output}")
+    stage.run_file(lift, point_cloud, out, detect_type=detect_type)
