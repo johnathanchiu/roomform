@@ -8,6 +8,8 @@ dependencies = ["numpy", "pydantic>=2"]
 [project.optional-dependencies]
 dev = ["ruff", "pytest"]
 agent = ["anthropic", "openai", "pydantic-settings", "httpx", "websockets", "google-genai"]
+model = ["torch", "scipy"]
+modal = ["modal"]
 
 [tool.ruff]
 line-length = 79
