@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from roomform.agent.errors import ModelError
-from roomform.agent.settings import DEFAULT_ANTHROPIC_MODEL, Settings, get_settings
+from roomform.agent.settings import (
+    DEFAULT_ANTHROPIC_MODEL,
+    Settings,
+    get_settings,
+)
 
 # Use the same conservative working budget as Codex instead of the full API window.
 _AGENT_CONTEXT_WINDOW_TOKENS = 272_000
@@ -36,7 +40,9 @@ SUPPORTED_MODELS = tuple(_MODEL_PRICES)
 
 
 class AnthropicModel:
-    def __init__(self, settings: Settings | None = None, *, client: Any | None = None):
+    def __init__(
+        self, settings: Settings | None = None, *, client: Any | None = None
+    ):
         self.config = settings or get_settings()
         _raise_for_unsupported_model(self.config.anthropic_model)
         self._client = client
@@ -57,13 +63,17 @@ class AnthropicModel:
         except ModelError:
             raise
         except Exception as exc:
-            raise ModelError(f"Anthropic request failed: {_format_exception(exc)}") from exc
+            raise ModelError(
+                f"Anthropic request failed: {_format_exception(exc)}"
+            ) from exc
 
         response_content = list(_value(response, "content", []) or [])
         text = _response_text(response_content)
         tool_calls = _response_tool_calls(response_content)
         if not text and not tool_calls and not _has_thinking(response_content):
-            raise ModelError("Anthropic response did not contain text, thinking, or tool calls")
+            raise ModelError(
+                "Anthropic response did not contain text, thinking, or tool calls"
+            )
 
         token_usage = _response_token_usage(response)
         return {
@@ -71,7 +81,9 @@ class AnthropicModel:
             "tool_calls": tool_calls,
             "token_usage": token_usage,
             "cost": _response_cost(self.config.anthropic_model, token_usage),
-            "provider_content": [_record_block(block) for block in response_content],
+            "provider_content": [
+                _record_block(block) for block in response_content
+            ],
             "response": response,
         }
 
@@ -91,9 +103,13 @@ class AnthropicModel:
         if system:
             request["system"] = system
         try:
-            response = await self._client_or_create().messages.create(**request)
+            response = await self._client_or_create().messages.create(
+                **request
+            )
         except Exception as exc:
-            raise ModelError(f"Anthropic summary request failed: {_format_exception(exc)}") from exc
+            raise ModelError(
+                f"Anthropic summary request failed: {_format_exception(exc)}"
+            ) from exc
 
         response_content = list(_value(response, "content", []) or [])
         text = _response_text(response_content)
@@ -136,7 +152,9 @@ class AnthropicModel:
         if self._client is None:
             api_key = anthropic_api_key_value(self.config)
             if not api_key:
-                raise ModelError("Anthropic credentials are required. Set ANTHROPIC_API_KEY.")
+                raise ModelError(
+                    "Anthropic credentials are required. Set ANTHROPIC_API_KEY."
+                )
             from anthropic import AsyncAnthropic
 
             self._client = AsyncAnthropic(
@@ -175,9 +193,13 @@ def _messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
         flush_tool_results()
         if message.get("role") == "user":
-            converted.append({"role": "user", "content": _user_content(message)})
+            converted.append(
+                {"role": "user", "content": _user_content(message)}
+            )
         elif message.get("role") == "assistant":
-            converted.append({"role": "assistant", "content": _assistant_content(message)})
+            converted.append(
+                {"role": "assistant", "content": _assistant_content(message)}
+            )
     flush_tool_results()
     return converted
 
@@ -185,8 +207,12 @@ def _messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _assistant_content(message: dict[str, Any]) -> list[dict[str, Any]]:
     provider_content = message.get("provider_content")
     if not isinstance(provider_content, list):
-        raise TypeError("Anthropic assistant messages require provider_content")
-    return [dict(block) for block in provider_content if isinstance(block, dict)]
+        raise TypeError(
+            "Anthropic assistant messages require provider_content"
+        )
+    return [
+        dict(block) for block in provider_content if isinstance(block, dict)
+    ]
 
 
 def _tool_result_block(message: dict[str, Any]) -> dict[str, Any]:
@@ -231,7 +257,9 @@ def _user_content(message: dict[str, Any]) -> str | list[dict[str, Any]]:
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
-        raise TypeError("AnthropicModel message content must be a string or list")
+        raise TypeError(
+            "AnthropicModel message content must be a string or list"
+        )
     return _content_items(content)
 
 
@@ -239,7 +267,9 @@ def _content_items(items: list[Any]) -> list[dict[str, Any]]:
     converted: list[dict[str, Any]] = []
     for item in items:
         if item.get("type") == "input_text":
-            converted.append({"type": "text", "text": str(item.get("text") or "")})
+            converted.append(
+                {"type": "text", "text": str(item.get("text") or "")}
+            )
         elif item.get("type") == "input_image":
             converted.append(_image_content(item))
     return converted
@@ -252,16 +282,27 @@ def _image_content(item: dict[str, Any]) -> dict[str, Any]:
         raise ModelError("Anthropic image input must use a base64 data URL")
 
     media_type, data = image_url[len(prefix) :].split(";base64,", 1)
-    if media_type not in {"image/gif", "image/jpeg", "image/png", "image/webp"}:
-        raise ModelError(f"Anthropic does not support image type: {media_type or 'missing'}")
+    if media_type not in {
+        "image/gif",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    }:
+        raise ModelError(
+            f"Anthropic does not support image type: {media_type or 'missing'}"
+        )
     if not data:
         raise ModelError("Anthropic image input has no base64 data")
     try:
         data.encode("ascii")
     except UnicodeEncodeError as exc:
-        raise ModelError("Anthropic image input must contain ASCII base64 data") from exc
+        raise ModelError(
+            "Anthropic image input must contain ASCII base64 data"
+        ) from exc
     if len(data) > _MAX_IMAGE_DATA_LENGTH:
-        raise ModelError("Anthropic image input exceeds the 10 MB base64 limit")
+        raise ModelError(
+            "Anthropic image input exceeds the 10 MB base64 limit"
+        )
     return {
         "type": "image",
         "source": {
@@ -309,7 +350,9 @@ def _response_tool_calls(content: list[Any]) -> list[dict[str, Any]]:
         call_id = str(_value(block, "id", ""))
         name = str(_value(block, "name", ""))
         if not call_id or not name:
-            raise ModelError("Anthropic tool call did not include an id or name")
+            raise ModelError(
+                "Anthropic tool call did not include an id or name"
+            )
         calls.append(
             {
                 "id": call_id,
@@ -322,12 +365,17 @@ def _response_tool_calls(content: list[Any]) -> list[dict[str, Any]]:
 
 def _record_block(block: Any) -> dict[str, Any]:
     return (
-        dict(block) if isinstance(block, dict) else block.model_dump(mode="json", exclude_none=True)
+        dict(block)
+        if isinstance(block, dict)
+        else block.model_dump(mode="json", exclude_none=True)
     )
 
 
 def _has_thinking(content: list[Any]) -> bool:
-    return any(_block_type(block) in {"thinking", "redacted_thinking"} for block in content)
+    return any(
+        _block_type(block) in {"thinking", "redacted_thinking"}
+        for block in content
+    )
 
 
 def _block_type(block: Any) -> str:
@@ -341,7 +389,9 @@ def _response_token_usage(response: Any) -> dict[str, int]:
 
     input_tokens = _usage_int(usage, "input_tokens")
     output_tokens = _usage_int(usage, "output_tokens")
-    cache_creation_input_tokens = _usage_int(usage, "cache_creation_input_tokens")
+    cache_creation_input_tokens = _usage_int(
+        usage, "cache_creation_input_tokens"
+    )
     cache_read_input_tokens = _usage_int(usage, "cache_read_input_tokens")
     cache_creation = _value(usage, "cache_creation", None)
     cache_creation_5m_input_tokens = _usage_int(
@@ -352,7 +402,9 @@ def _response_token_usage(response: Any) -> dict[str, int]:
         cache_creation,
         "ephemeral_1h_input_tokens",
     )
-    detailed_cache_creation_tokens = cache_creation_5m_input_tokens + cache_creation_1h_input_tokens
+    detailed_cache_creation_tokens = (
+        cache_creation_5m_input_tokens + cache_creation_1h_input_tokens
+    )
     if detailed_cache_creation_tokens:
         cache_creation_input_tokens = detailed_cache_creation_tokens
     else:
@@ -367,7 +419,10 @@ def _response_token_usage(response: Any) -> dict[str, int]:
         "cache_read_input_tokens": cache_read_input_tokens,
         "cached_input_tokens": cache_read_input_tokens,
         "total_tokens": (
-            input_tokens + output_tokens + cache_creation_input_tokens + cache_read_input_tokens
+            input_tokens
+            + output_tokens
+            + cache_creation_input_tokens
+            + cache_read_input_tokens
         ),
     }
 
@@ -380,22 +435,39 @@ def _usage_int(usage: Any, name: str) -> int:
         return 0
 
 
-def _response_cost(model: str, usage: dict[str, int], *, today: date | None = None) -> float:
+def _response_cost(
+    model: str, usage: dict[str, int], *, today: date | None = None
+) -> float:
     prices = _prices_for(model, today=today)
     if prices is None or not usage:
         return 0.0
 
-    cache_creation_5m_input_tokens = usage.get("cache_creation_5m_input_tokens", 0)
-    cache_creation_1h_input_tokens = usage.get("cache_creation_1h_input_tokens", 0)
-    if not cache_creation_5m_input_tokens and not cache_creation_1h_input_tokens:
-        cache_creation_5m_input_tokens = usage.get("cache_creation_input_tokens", 0)
+    cache_creation_5m_input_tokens = usage.get(
+        "cache_creation_5m_input_tokens", 0
+    )
+    cache_creation_1h_input_tokens = usage.get(
+        "cache_creation_1h_input_tokens", 0
+    )
+    if (
+        not cache_creation_5m_input_tokens
+        and not cache_creation_1h_input_tokens
+    ):
+        cache_creation_5m_input_tokens = usage.get(
+            "cache_creation_input_tokens", 0
+        )
 
     return round(
         (
             usage.get("input_tokens", 0) * prices.input_price
-            + cache_creation_5m_input_tokens * prices.input_price * _CACHE_WRITE_5M_MULTIPLIER
-            + cache_creation_1h_input_tokens * prices.input_price * _CACHE_WRITE_1H_MULTIPLIER
-            + usage.get("cache_read_input_tokens", 0) * prices.input_price * _CACHE_READ_MULTIPLIER
+            + cache_creation_5m_input_tokens
+            * prices.input_price
+            * _CACHE_WRITE_5M_MULTIPLIER
+            + cache_creation_1h_input_tokens
+            * prices.input_price
+            * _CACHE_WRITE_1H_MULTIPLIER
+            + usage.get("cache_read_input_tokens", 0)
+            * prices.input_price
+            * _CACHE_READ_MULTIPLIER
             + usage.get("output_tokens", 0) * prices.output_price
         )
         / 1_000_000,
@@ -404,7 +476,11 @@ def _response_cost(model: str, usage: dict[str, int], *, today: date | None = No
 
 
 def _prices_for(model: str, *, today: date | None = None) -> _Prices | None:
-    if model == "claude-sonnet-5" and (today or date.today()) >= _SONNET_5_STANDARD_PRICING_START:
+    if (
+        model == "claude-sonnet-5"
+        and (today or datetime.now(timezone.utc).date())
+        >= _SONNET_5_STANDARD_PRICING_START
+    ):
         return _SONNET_5_STANDARD_PRICES
     return _MODEL_PRICES.get(model)
 
@@ -416,7 +492,9 @@ def context_window_tokens_for(model: str) -> int | None:
 def _raise_for_unsupported_model(model: str) -> None:
     if model not in SUPPORTED_MODELS:
         supported = ", ".join(SUPPORTED_MODELS)
-        raise ModelError(f"Unsupported Anthropic model: {model}. Supported models: {supported}")
+        raise ModelError(
+            f"Unsupported Anthropic model: {model}. Supported models: {supported}"
+        )
 
 
 def _value(source: Any, name: str, default: Any = None) -> Any:

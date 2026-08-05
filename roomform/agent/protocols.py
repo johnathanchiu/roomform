@@ -13,9 +13,7 @@ operate on scene documents.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
-
 
 
 class Model(Protocol):

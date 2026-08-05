@@ -16,6 +16,7 @@ Conventions (apply everywhere):
   - voxel index (i, j, k) covers [origin + idx*vox, origin+(idx+1)*vox)
   - arrays are C-order (i, j, k); npz keys are lowercase snake_case.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -32,6 +33,7 @@ class ScanInput(BaseModel):
     for trajectory-less scans, in which case visibility falls back to
     synthesized viewpoints and MUST be marked approximate).
     """
+
     npz_path: str
     n_points: int
     has_color: bool = False
@@ -51,6 +53,7 @@ class EvidenceGrid(BaseModel):
     Invariants: occ & sf disjoint; vox_m in {0.02, 0.04, 0.08};
     origin recorded; visibility_source in {"stations", "synthesized"}.
     """
+
     npz_path: str
     vox_m: float
     origin: tuple[float, float, float]
@@ -60,6 +63,7 @@ class EvidenceGrid(BaseModel):
 
 class PatchGraphNode(BaseModel):
     """One predicted structural cell at grid resolution."""
+
     idx: tuple[int, int, int]
     p_wall: float
     p_floor: float
@@ -78,6 +82,7 @@ class PatchGraph(BaseModel):
     Openings are represented by ABSENCE of nodes/edges (v0); an
     explicit opening head is a planned v0.2 extension.
     """
+
     npz_path: str
     vox_m: float
     origin: tuple[float, float, float]
@@ -89,17 +94,19 @@ class PatchGraph(BaseModel):
 
 class SceneObject(BaseModel):
     """One detected/reconstructed object in the scene."""
+
     cls: str
-    center: tuple[float, float, float]     # grid frame (origin-shifted)
+    center: tuple[float, float, float]  # grid frame (origin-shifted)
     size: tuple[float, float, float]
-    heading: float                          # z-yaw, radians
-    source: str = "spatiallm"               # spatiallm | sam3d | ...
-    mesh_path: str | None = None            # aligned mesh if reconstructed
+    heading: float  # z-yaw, radians
+    source: str = "spatiallm"  # spatiallm | sam3d | ...
+    mesh_path: str | None = None  # aligned mesh if reconstructed
     qa: dict = Field(default_factory=dict)  # wall_leak_pts, floor_support_m
 
 
 class SceneDocument(BaseModel):
     """The end-to-end product: shell + objects + provenance."""
+
     version: str = VERSION
     source_scan: str
     frame_shift: tuple[float, float, float]

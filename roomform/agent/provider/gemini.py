@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from roomform.agent.errors import ModelError
-from roomform.agent.settings import DEFAULT_GEMINI_MODEL, Settings, get_settings
+from roomform.agent.settings import (
+    DEFAULT_GEMINI_MODEL,
+    Settings,
+    get_settings,
+)
 
 _LONG_CONTEXT_THRESHOLD_TOKENS = 200_000
 # Use the same conservative working budget as Codex instead of the full API window.
@@ -23,7 +27,9 @@ class _ModelSpec:
 
 # Prices are USD per million tokens for the Gemini Developer API Standard tier.
 _MODELS = {
-    "gemini-3.6-flash": _ModelSpec(_AGENT_CONTEXT_WINDOW_TOKENS, 1.50, 0.15, 7.50),
+    "gemini-3.6-flash": _ModelSpec(
+        _AGENT_CONTEXT_WINDOW_TOKENS, 1.50, 0.15, 7.50
+    ),
     "gemini-3.1-pro-preview": _ModelSpec(
         _AGENT_CONTEXT_WINDOW_TOKENS,
         2.00,
@@ -35,7 +41,9 @@ _MODELS = {
 
 
 class GeminiModel:
-    def __init__(self, settings: Settings | None = None, *, client: Any | None = None):
+    def __init__(
+        self, settings: Settings | None = None, *, client: Any | None = None
+    ):
         self.config = settings or get_settings()
         _raise_for_unsupported_model(self.config.gemini_model)
         self._client = client
@@ -62,14 +70,22 @@ class GeminiModel:
         except ModelError:
             raise
         except Exception as exc:
-            raise ModelError(f"Gemini request failed: {_format_exception(exc)}") from exc
+            raise ModelError(
+                f"Gemini request failed: {_format_exception(exc)}"
+            ) from exc
 
         response_steps = _response_steps(response)
         text = _response_text(response_steps)
         tool_calls = _response_tool_calls(response_steps)
         _raise_for_bad_status(response, tool_calls)
-        if not text and not tool_calls and not _response_has_thoughts(response_steps):
-            raise ModelError("Gemini response did not contain text, thoughts, or tool calls")
+        if (
+            not text
+            and not tool_calls
+            and not _response_has_thoughts(response_steps)
+        ):
+            raise ModelError(
+                "Gemini response did not contain text, thoughts, or tool calls"
+            )
 
         token_usage = _response_token_usage(response)
         return {
@@ -98,7 +114,9 @@ class GeminiModel:
                 store=False,
             )
         except Exception as exc:
-            raise ModelError(f"Gemini summary request failed: {_format_exception(exc)}") from exc
+            raise ModelError(
+                f"Gemini summary request failed: {_format_exception(exc)}"
+            ) from exc
 
         response_steps = _response_steps(response)
         text = _response_text(response_steps)
@@ -126,14 +144,19 @@ class GeminiModel:
 
         api_key = (self.config.gemini_api_key or "").strip()
         if not api_key:
-            raise ModelError("Gemini credentials are required. Set GEMINI_API_KEY.")
+            raise ModelError(
+                "Gemini credentials are required. Set GEMINI_API_KEY."
+            )
 
         from google import genai  # type: ignore
 
         self._client = genai.Client(
             api_key=api_key,
             http_options={
-                "timeout": max(1, round(self.config.gemini_request_timeout_seconds * 1_000)),
+                "timeout": max(
+                    1,
+                    round(self.config.gemini_request_timeout_seconds * 1_000),
+                ),
                 "retry_options": {"attempts": self.config.gemini_max_attempts},
             },
         )
@@ -163,7 +186,9 @@ def _input_steps(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             call_id = str(message.get("call_id") or "")
             name = tool_names.get(call_id)
             if not name:
-                raise ModelError(f"Gemini tool result has unknown call id: {call_id}")
+                raise ModelError(
+                    f"Gemini tool result has unknown call id: {call_id}"
+                )
             output = message.get("output")
             result = {
                 "type": "function_result",
@@ -175,13 +200,17 @@ def _input_steps(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 result["is_error"] = True
             steps.append(result)
         elif message.get("role") == "user":
-            steps.append({"type": "user_input", "content": _user_content(message)})
+            steps.append(
+                {"type": "user_input", "content": _user_content(message)}
+            )
         elif message.get("role") == "assistant":
             assistant_steps = _assistant_steps(message)
             steps.extend(assistant_steps)
             for step in assistant_steps:
                 if step.get("type") == "function_call":
-                    tool_names[str(step.get("id") or "")] = str(step.get("name") or "")
+                    tool_names[str(step.get("id") or "")] = str(
+                        step.get("name") or ""
+                    )
     return steps
 
 
@@ -204,7 +233,9 @@ def _user_content(message: dict[str, Any]) -> list[dict[str, str]]:
         if not isinstance(item, dict):
             continue
         if item.get("type") == "input_text":
-            converted.append({"type": "text", "text": str(item.get("text") or "")})
+            converted.append(
+                {"type": "text", "text": str(item.get("text") or "")}
+            )
         elif item.get("type") == "input_image":
             image = _image_content(
                 str(item.get("image_url") or ""),
@@ -221,7 +252,9 @@ def _tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "type": "function",
             "name": str(tool.get("name") or ""),
             "description": str(tool.get("description") or ""),
-            "parameters": _strip_unsupported_schema_keys(tool.get("parameters") or {}),
+            "parameters": _strip_unsupported_schema_keys(
+                tool.get("parameters") or {}
+            ),
         }
         for tool in tools
         if tool.get("type") == "function"
@@ -249,7 +282,9 @@ def _function_result_content(output: Any) -> list[dict[str, str]]:
         if not isinstance(item, dict):
             continue
         if item.get("type") == "input_text":
-            content.append({"type": "text", "text": str(item.get("text") or "")})
+            content.append(
+                {"type": "text", "text": str(item.get("text") or "")}
+            )
         elif item.get("type") == "input_image":
             image = _image_content(
                 str(item.get("image_url") or ""),
@@ -286,7 +321,11 @@ def _function_result_is_error(output: Any) -> bool:
 
 def _image_content(image_url: str, detail: str) -> dict[str, str] | None:
     header, separator, data = image_url.partition(",")
-    if not separator or not header.startswith("data:") or not header.endswith(";base64"):
+    if (
+        not separator
+        or not header.startswith("data:")
+        or not header.endswith(";base64")
+    ):
         return None
     return {
         "type": "image",
@@ -306,7 +345,9 @@ def _response_steps(response: Any) -> list[dict[str, Any]]:
 def _record_step(step: Any) -> dict[str, Any]:
     if isinstance(step, dict):
         return dict(step)
-    if getattr(step, "is_unknown", False) and isinstance(getattr(step, "raw", None), dict):
+    if getattr(step, "is_unknown", False) and isinstance(
+        getattr(step, "raw", None), dict
+    ):
         return dict(step.raw)
     return step.model_dump(mode="json", by_alias=True, exclude_none=True)
 
@@ -331,13 +372,17 @@ def _response_tool_calls(steps: list[Any]) -> list[dict[str, Any]]:
         call_id = str(_value(step, "id") or "")
         name = str(_value(step, "name") or "")
         if not call_id or not name:
-            raise ModelError("Gemini returned a function call without an id or name")
+            raise ModelError(
+                "Gemini returned a function call without an id or name"
+            )
         arguments = _value(step, "arguments")
         calls.append(
             {
                 "id": call_id,
                 "name": name,
-                "arguments": json.dumps(arguments if isinstance(arguments, dict) else {}),
+                "arguments": json.dumps(
+                    arguments if isinstance(arguments, dict) else {}
+                ),
             }
         )
     return calls
@@ -357,7 +402,8 @@ def _response_token_usage(response: Any) -> dict[str, int]:
     output_tokens = _usage_int(usage, "total_output_tokens")
     thought_tokens = _usage_int(usage, "total_thought_tokens")
     total_tokens = (
-        _usage_int(usage, "total_tokens") or input_tokens + output_tokens + thought_tokens
+        _usage_int(usage, "total_tokens")
+        or input_tokens + output_tokens + thought_tokens
     )
     return {
         "input_tokens": input_tokens,
@@ -377,7 +423,11 @@ def _usage_int(usage: Any, name: str) -> int:
 
 
 def _value(value: Any, name: str) -> Any:
-    return value.get(name) if isinstance(value, dict) else getattr(value, name, None)
+    return (
+        value.get(name)
+        if isinstance(value, dict)
+        else getattr(value, name, None)
+    )
 
 
 def _response_cost(model: str, usage: dict[str, int]) -> float:
@@ -387,13 +437,18 @@ def _response_cost(model: str, usage: dict[str, int]) -> float:
 
     prices = (spec.input_price, spec.cached_input_price, spec.output_price)
     input_tokens = usage.get("input_tokens", 0)
-    if input_tokens > _LONG_CONTEXT_THRESHOLD_TOKENS and spec.long_context_prices is not None:
+    if (
+        input_tokens > _LONG_CONTEXT_THRESHOLD_TOKENS
+        and spec.long_context_prices is not None
+    ):
         prices = spec.long_context_prices
 
     input_price, cached_input_price, output_price = prices
     cached_tokens = usage.get("cached_input_tokens", 0)
     uncached_tokens = max(0, input_tokens - cached_tokens)
-    billed_output_tokens = usage.get("output_tokens", 0) + usage.get("thought_tokens", 0)
+    billed_output_tokens = usage.get("output_tokens", 0) + usage.get(
+        "thought_tokens", 0
+    )
     return round(
         (
             uncached_tokens * input_price
@@ -413,12 +468,18 @@ def context_window_tokens_for(model: str) -> int | None:
 def _raise_for_unsupported_model(model: str) -> None:
     if model not in _MODELS:
         supported = ", ".join(sorted(_MODELS))
-        raise ModelError(f"Unsupported Gemini model: {model}. Supported models: {supported}")
+        raise ModelError(
+            f"Unsupported Gemini model: {model}. Supported models: {supported}"
+        )
 
 
-def _raise_for_bad_status(response: Any, tool_calls: list[dict[str, Any]]) -> None:
+def _raise_for_bad_status(
+    response: Any, tool_calls: list[dict[str, Any]]
+) -> None:
     status = _value(response, "status")
-    if status in {None, "completed"} or (status == "requires_action" and tool_calls):
+    if status in {None, "completed"} or (
+        status == "requires_action" and tool_calls
+    ):
         return
     raise ModelError(f"Gemini interaction ended with status {status}")
 

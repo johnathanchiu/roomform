@@ -13,10 +13,11 @@ migrates in from the internal repo behind this interface; internals may
 be replaced wholesale as long as ``forward`` keeps its signature and
 ``ModelConfig`` describes the checkpoint.
 """
+
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from roomform.model.config import ModelConfig
 
@@ -34,25 +35,31 @@ class PatchGraphConvFormer(nn.Module):
         super().__init__()
         self.cfg = cfg = cfg or ModelConfig()
         stem = [conv_block(cfg.in_channels, cfg.stem_dim)]
-        stem += [conv_block(cfg.stem_dim, cfg.stem_dim)
-                 for _ in range(cfg.stem_depth - 1)]
+        stem += [
+            conv_block(cfg.stem_dim, cfg.stem_dim)
+            for _ in range(cfg.stem_depth - 1)
+        ]
         self.stem = nn.Sequential(*stem)
-        self.to_tokens = nn.Conv3d(cfg.stem_dim, cfg.attn_dim,
-                                   cfg.attn_pool, stride=cfg.attn_pool)
+        self.to_tokens = nn.Conv3d(
+            cfg.stem_dim, cfg.attn_dim, cfg.attn_pool, stride=cfg.attn_pool
+        )
         layer = nn.TransformerEncoderLayer(
-            d_model=cfg.attn_dim, nhead=cfg.attn_heads,
-            dim_feedforward=4 * cfg.attn_dim, batch_first=True,
-            norm_first=True, activation="gelu")
+            d_model=cfg.attn_dim,
+            nhead=cfg.attn_heads,
+            dim_feedforward=4 * cfg.attn_dim,
+            batch_first=True,
+            norm_first=True,
+            activation="gelu",
+        )
         self.attn = nn.TransformerEncoder(layer, cfg.attn_depth)
         self.from_tokens = nn.ConvTranspose3d(
-            cfg.attn_dim, cfg.stem_dim, cfg.attn_pool,
-            stride=cfg.attn_pool)
+            cfg.attn_dim, cfg.stem_dim, cfg.attn_pool, stride=cfg.attn_pool
+        )
         self.fuse = conv_block(2 * cfg.stem_dim, cfg.head_dim)
         self.node_head = nn.Conv3d(cfg.head_dim, cfg.node_classes, 1)
         self.edge_head = nn.Conv3d(cfg.head_dim, cfg.edge_offsets, 1)
 
-    def forward(self, x: torch.Tensor
-                ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """x [B, in_channels, X, Y, Z] -> (node_logits [B,3,X,Y,Z],
         edge_logits [B,13,X,Y,Z]). Spatial dims must be divisible by
         attn_pool."""

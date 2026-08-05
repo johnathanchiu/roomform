@@ -71,7 +71,9 @@ class PreparedImage:
         }
 
 
-def prepare_image(path: Path, *, detail: ImageDetail = "original") -> PreparedImage:
+def prepare_image(
+    path: Path, *, detail: ImageDetail = "original"
+) -> PreparedImage:
     if not path.is_file():
         raise ValueError(f"image path is not a file: {path}")
     size = path.stat().st_size
@@ -91,18 +93,27 @@ def _prepare_image(data: bytes, *, detail: ImageDetail) -> PreparedImage:
                 source.load()
                 orientation = source.getexif().get(274)
                 image = ImageOps.exif_transpose(source).copy()
-    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
-        raise ValueError("image dimensions exceed the supported limit") from exc
+    except (
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ) as exc:
+        raise ValueError(
+            "image dimensions exceed the supported limit"
+        ) from exc
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
         if str(exc) == "animated GIF images are not supported":
             raise
-        raise ValueError("file is not a supported PNG, JPEG, GIF, or WebP image") from exc
+        raise ValueError(
+            "file is not a supported PNG, JPEG, GIF, or WebP image"
+        ) from exc
 
     mime_type = FORMAT_MIME_TYPES.get(source_format)
     if mime_type is None:
         raise ValueError("image must be PNG, JPEG, GIF, or WebP")
 
-    width, height = _output_dimensions(image.width, image.height, LIMITS[detail])
+    width, height = _output_dimensions(
+        image.width, image.height, LIMITS[detail]
+    )
     if (
         source_format in {"PNG", "JPEG", "WEBP"}
         and (width, height) == image.size
@@ -111,7 +122,9 @@ def _prepare_image(data: bytes, *, detail: ImageDetail) -> PreparedImage:
         return PreparedImage(data, mime_type, width, height, detail)
 
     if image.size != (width, height):
-        image = image.resize((width, height), resample=Image.Resampling.LANCZOS)
+        image = image.resize(
+            (width, height), resample=Image.Resampling.LANCZOS
+        )
 
     output_format = "PNG" if source_format == "GIF" else source_format
     output = io.BytesIO()
@@ -149,7 +162,9 @@ def _prepare_image(data: bytes, *, detail: ImageDetail) -> PreparedImage:
     )
 
 
-def _output_dimensions(width: int, height: int, limits: ImageLimits) -> tuple[int, int]:
+def _output_dimensions(
+    width: int, height: int, limits: ImageLimits
+) -> tuple[int, int]:
     width = max(1, width)
     height = max(1, height)
     if _fits(width, height, limits):
@@ -168,7 +183,9 @@ def _output_dimensions(width: int, height: int, limits: ImageLimits) -> tuple[in
         math.floor(scaled_patches_wide) / scaled_patches_wide,
         math.floor(scaled_patches_high) / scaled_patches_high,
     )
-    return max(1, math.floor(width * scale)), max(1, math.floor(height * scale))
+    return max(1, math.floor(width * scale)), max(
+        1, math.floor(height * scale)
+    )
 
 
 def _fits(width: int, height: int, limits: ImageLimits) -> bool:

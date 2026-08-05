@@ -29,7 +29,9 @@ class OpenRouterModel:
     ):
         self.config = settings or get_settings()
         if not (self.config.openrouter_api_key or "").strip():
-            raise ModelError("OpenRouter credentials are required. Set OPENROUTER_API_KEY.")
+            raise ModelError(
+                "OpenRouter credentials are required. Set OPENROUTER_API_KEY."
+            )
         if not self.config.openrouter_model.strip():
             raise ModelError(
                 "OpenRouter model is required. Pass --model or set MINI_ARTICRAFT_OPENROUTER_MODEL."
@@ -61,7 +63,9 @@ class OpenRouterModel:
         _raise_for_provider_error(response.status_code, payload)
         text, tool_calls, provider_content = _assistant_output(payload)
         if not text and not tool_calls:
-            raise ModelError("OpenRouter response did not contain text or tool calls")
+            raise ModelError(
+                "OpenRouter response did not contain text or tool calls"
+            )
 
         return {
             "text": text,
@@ -78,7 +82,9 @@ class OpenRouterModel:
         if client is not None:
             await client.aclose()
 
-    async def _send_with_retries(self, request: dict[str, Any]) -> httpx.Response:
+    async def _send_with_retries(
+        self, request: dict[str, Any]
+    ) -> httpx.Response:
         for attempt in range(1, self.config.openrouter_max_attempts + 1):
             response: httpx.Response | None = None
             try:
@@ -112,7 +118,9 @@ class OpenRouterModel:
                     and _retryable_status(provider_status)
                     and attempt < self.config.openrouter_max_attempts
                 ):
-                    delay = _retry_delay(attempt, response.headers.get("Retry-After"))
+                    delay = _retry_delay(
+                        attempt, response.headers.get("Retry-After")
+                    )
                     logger.warning(
                         "OpenRouter provider failed (attempt %s/%s), retrying in %.2fs: "
                         "provider code %s",
@@ -128,7 +136,9 @@ class OpenRouterModel:
             if _retryable_status(response.status_code) and (
                 attempt < self.config.openrouter_max_attempts
             ):
-                delay = _retry_delay(attempt, response.headers.get("Retry-After"))
+                delay = _retry_delay(
+                    attempt, response.headers.get("Retry-After")
+                )
                 logger.warning(
                     "OpenRouter request failed (attempt %s/%s), retrying in %.2fs: HTTP %s",
                     attempt,
@@ -178,7 +188,12 @@ def _messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
         role = message.get("role")
         if role in {"system", "user"}:
-            converted.append({"role": role, "content": _text_content(message.get("content"))})
+            converted.append(
+                {
+                    "role": role,
+                    "content": _text_content(message.get("content")),
+                }
+            )
         elif role == "assistant":
             converted.append(_assistant_message(message))
     return converted
@@ -205,7 +220,10 @@ def _assistant_message(message: dict[str, Any]) -> dict[str, Any]:
     if tool_calls:
         converted["tool_calls"] = tool_calls
     for item in message.get("provider_content") or []:
-        if not isinstance(item, dict) or item.get("type") != "openrouter_reasoning":
+        if (
+            not isinstance(item, dict)
+            or item.get("type") != "openrouter_reasoning"
+        ):
             continue
         reasoning = item.get("reasoning")
         if isinstance(reasoning, str):
@@ -220,14 +238,18 @@ def _text_content(content: Any) -> str:
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
-        raise TypeError("OpenRouterModel message content must be a string or list")
+        raise TypeError(
+            "OpenRouterModel message content must be a string or list"
+        )
 
     text: list[str] = []
     for item in content:
         if not isinstance(item, dict):
             continue
         if item.get("type") == "input_image":
-            raise ModelError("OpenRouterModel supports text input and function calling, not images")
+            raise ModelError(
+                "OpenRouterModel supports text input and function calling, not images"
+            )
         if item.get("type") == "input_text":
             text.append(str(item.get("text") or ""))
     return "\n".join(text)
@@ -273,7 +295,9 @@ def _response_payload(response: httpx.Response) -> dict[str, Any]:
             f"OpenRouter response was not valid JSON (HTTP {response.status_code})"
         ) from exc
     if not isinstance(payload, dict):
-        raise ModelError(f"OpenRouter response was not an object (HTTP {response.status_code})")
+        raise ModelError(
+            f"OpenRouter response was not an object (HTTP {response.status_code})"
+        )
     return payload
 
 
@@ -281,7 +305,9 @@ def _error_payload(response: httpx.Response) -> dict[str, Any]:
     try:
         payload = response.json()
     except ValueError:
-        return {"error": {"message": response.text.strip() or "request failed"}}
+        return {
+            "error": {"message": response.text.strip() or "request failed"}
+        }
     if isinstance(payload, dict):
         return payload
     return {"error": {"message": response.text.strip() or "request failed"}}
@@ -294,11 +320,18 @@ def _raise_for_provider_error(status: int, payload: dict[str, Any]) -> None:
 
     choices = payload.get("choices")
     if not isinstance(choices, list) or not choices:
-        raise ModelError(f"OpenRouter response did not contain choices (HTTP {status})")
+        raise ModelError(
+            f"OpenRouter response did not contain choices (HTTP {status})"
+        )
     first = choices[0]
     if not isinstance(first, dict):
-        raise ModelError(f"OpenRouter response contained an invalid choice (HTTP {status})")
-    if isinstance(first.get("error"), dict) or first.get("finish_reason") == "error":
+        raise ModelError(
+            f"OpenRouter response contained an invalid choice (HTTP {status})"
+        )
+    if (
+        isinstance(first.get("error"), dict)
+        or first.get("finish_reason") == "error"
+    ):
         raise ModelError(_provider_error(status, first))
 
 
@@ -308,7 +341,11 @@ def _embedded_provider_status(payload: dict[str, Any]) -> int | None:
         return _status_code(error.get("code"))
 
     choices = payload.get("choices")
-    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+    if (
+        not isinstance(choices, list)
+        or not choices
+        or not isinstance(choices[0], dict)
+    ):
         return None
     choice_error = choices[0].get("error")
     if isinstance(choice_error, dict):
@@ -335,7 +372,9 @@ def _provider_error(status: int, payload: dict[str, Any]) -> str:
         message = error.strip()
 
     detail = message or "request failed"
-    code_detail = f", provider code {code}" if code not in {None, status} else ""
+    code_detail = (
+        f", provider code {code}" if code not in {None, status} else ""
+    )
     return f"OpenRouter request failed (HTTP {status}{code_detail}): {detail}"
 
 
@@ -343,12 +382,18 @@ def _assistant_output(
     payload: dict[str, Any],
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     choices = payload.get("choices")
-    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+    if (
+        not isinstance(choices, list)
+        or not choices
+        or not isinstance(choices[0], dict)
+    ):
         raise ModelError("OpenRouter response did not contain a valid choice")
     first = choices[0]
     message = first.get("message")
     if not isinstance(message, dict):
-        raise ModelError("OpenRouter response choice did not contain an assistant message")
+        raise ModelError(
+            "OpenRouter response choice did not contain an assistant message"
+        )
 
     content = message.get("content")
     text = content if isinstance(content, str) else ""
@@ -362,7 +407,9 @@ def _assistant_output(
         call_id = str(raw_call.get("id") or "")
         name = str(function.get("name") or "")
         if not call_id or not name:
-            raise ModelError("OpenRouter returned a function call without an id or name")
+            raise ModelError(
+                "OpenRouter returned a function call without an id or name"
+            )
         calls.append(
             {
                 "id": call_id,
@@ -390,9 +437,13 @@ def _response_token_usage(payload: dict[str, Any]) -> dict[str, int]:
 
     input_tokens = _int(usage.get("prompt_tokens"))
     output_tokens = _int(usage.get("completion_tokens"))
-    total_tokens = _int(usage.get("total_tokens")) or input_tokens + output_tokens
+    total_tokens = (
+        _int(usage.get("total_tokens")) or input_tokens + output_tokens
+    )
     details = usage.get("prompt_tokens_details")
-    cached_input_tokens = _int(details.get("cached_tokens")) if isinstance(details, dict) else 0
+    cached_input_tokens = (
+        _int(details.get("cached_tokens")) if isinstance(details, dict) else 0
+    )
     return {
         "input_tokens": input_tokens,
         "cached_input_tokens": cached_input_tokens,

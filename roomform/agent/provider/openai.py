@@ -34,7 +34,9 @@ class _ModelSpec:
 
 # Prices are USD per million tokens: input, cached input, output, cache write.
 _MODELS = {
-    "gpt-5.6-sol": _ModelSpec(_CODEX_CONTEXT_WINDOW_TOKENS, 5.0, 0.5, 30.0, 6.25),
+    "gpt-5.6-sol": _ModelSpec(
+        _CODEX_CONTEXT_WINDOW_TOKENS, 5.0, 0.5, 30.0, 6.25
+    ),
     "gpt-5.5-pro": _ModelSpec(_CODEX_CONTEXT_WINDOW_TOKENS, 30.0, 30.0, 180.0),
     "gpt-5.5": _ModelSpec(_CODEX_CONTEXT_WINDOW_TOKENS, 5.0, 0.5, 30.0),
     "gpt-5.4-pro": _ModelSpec(1_050_000, 30.0, 30.0, 180.0),
@@ -49,7 +51,9 @@ class OpenAIModel:
     def __init__(self, settings: Settings | None = None):
         self.config = settings or get_settings()
         if not self.config.openai_api_key:
-            raise ModelError("OpenAI credentials are required. Set OPENAI_API_KEY.")
+            raise ModelError(
+                "OpenAI credentials are required. Set OPENAI_API_KEY."
+            )
         self._websocket: Any = None
         self._input_items: list[dict[str, Any]] = []
         self._last_message_count = 0
@@ -73,7 +77,9 @@ class OpenAIModel:
         else:
             input_items = new_items
 
-        request = self._request(messages, input_items, previous_response_id, tools)
+        request = self._request(
+            messages, input_items, previous_response_id, tools
+        )
         fallback_request = self._request(
             messages,
             [*self._input_items, *new_items],
@@ -85,7 +91,11 @@ class OpenAIModel:
         text = _response_text(response)
         tool_calls = _response_tool_calls(response)
         _raise_for_bad_status(response, text)
-        if not text and not tool_calls and not _response_has_reasoning(response):
+        if (
+            not text
+            and not tool_calls
+            and not _response_has_reasoning(response)
+        ):
             raise ModelError("OpenAI response did not contain output_text")
 
         self._input_items.extend(new_items)
@@ -140,7 +150,10 @@ class OpenAIModel:
                     timeout=self.config.openai_request_timeout_seconds,
                 )
             except Exception as exc:
-                if attempt >= self.config.openai_max_attempts or not _should_retry(exc):
+                if (
+                    attempt >= self.config.openai_max_attempts
+                    or not _should_retry(exc)
+                ):
                     raise
                 await self._close_websocket()
                 delay = random.random() * min(
@@ -165,10 +178,17 @@ class OpenAIModel:
         try:
             return await self._send_websocket(request)
         except _OpenAIWebSocketError as exc:
-            if exc.code != "previous_response_not_found" or "previous_response_id" not in request:
+            if (
+                exc.code != "previous_response_not_found"
+                or "previous_response_id" not in request
+            ):
                 raise
-            logger.warning("OpenAI lost the previous response; resending the full conversation")
-            return await self._send_websocket(fallback_request, force_reconnect=True)
+            logger.warning(
+                "OpenAI lost the previous response; resending the full conversation"
+            )
+            return await self._send_websocket(
+                fallback_request, force_reconnect=True
+            )
 
     async def _send_websocket(
         self,
@@ -176,8 +196,12 @@ class OpenAIModel:
         *,
         force_reconnect: bool = False,
     ) -> dict[str, Any]:
-        websocket = await self._ensure_websocket(force_reconnect=force_reconnect)
-        await websocket.send(json.dumps({"type": "response.create", **request}))
+        websocket = await self._ensure_websocket(
+            force_reconnect=force_reconnect
+        )
+        await websocket.send(
+            json.dumps({"type": "response.create", **request})
+        )
         return await _receive_websocket_response(websocket)
 
     async def _ensure_websocket(self, *, force_reconnect: bool = False) -> Any:
@@ -191,7 +215,9 @@ class OpenAIModel:
         await self._close_websocket()
         self._websocket = await websockets.connect(
             _WEBSOCKET_URL,
-            additional_headers={"Authorization": f"Bearer {self.config.openai_api_key}"},
+            additional_headers={
+                "Authorization": f"Bearer {self.config.openai_api_key}"
+            },
             open_timeout=_WEBSOCKET_OPEN_TIMEOUT_SECONDS,
             max_size=None,
         )
@@ -206,15 +232,22 @@ class OpenAIModel:
             except Exception:
                 logger.debug("OpenAI websocket close failed", exc_info=True)
 
-    def _new_input_items(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _new_input_items(
+        self, messages: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         new_items: list[dict[str, Any]] = []
         for message in messages[self._last_message_count :]:
             if "type" in message:
-                new_items.append(_normalize_image_details(message, self.config.openai_model))
+                new_items.append(
+                    _normalize_image_details(message, self.config.openai_model)
+                )
                 continue
             if message["role"] == "system":
                 continue
-            if self._previous_response_id is not None and message["role"] == "assistant":
+            if (
+                self._previous_response_id is not None
+                and message["role"] == "assistant"
+            ):
                 continue
             new_items.append(_input_message(message, self.config.openai_model))
         return new_items
@@ -243,7 +276,9 @@ async def _receive_websocket_response(websocket: Any) -> dict[str, Any]:
 
 
 class _OpenAIWebSocketError(ModelError):
-    def __init__(self, *, code: str | None, message: str, status: int | None = None):
+    def __init__(
+        self, *, code: str | None, message: str, status: int | None = None
+    ):
         self.code = code
         self.status = status
         prefix = f"{code}: " if code else ""
@@ -252,7 +287,9 @@ class _OpenAIWebSocketError(ModelError):
     @classmethod
     def from_event(cls, event: dict[str, Any]) -> _OpenAIWebSocketError:
         error: Any = event.get("error")
-        if event.get("type") == "response.failed" and isinstance(event.get("response"), dict):
+        if event.get("type") == "response.failed" and isinstance(
+            event.get("response"), dict
+        ):
             error = event["response"].get("error") or error
         if isinstance(error, dict):
             code = error.get("code")
@@ -269,7 +306,9 @@ class _OpenAIWebSocketError(ModelError):
 
 
 def _should_retry(exc: BaseException) -> bool:
-    if isinstance(exc, (asyncio.TimeoutError, TimeoutError, OSError, WebSocketException)):
+    if isinstance(
+        exc, (asyncio.TimeoutError, TimeoutError, OSError, WebSocketException)
+    ):
         status = _http_status(exc)
         return status is None or _is_transient_status(status)
 
@@ -334,7 +373,10 @@ def _normalize_image_details(value: Any, model: str) -> Any:
         return [_normalize_image_details(item, model) for item in value]
     if not isinstance(value, dict):
         return value
-    item = {key: _normalize_image_details(child, model) for key, child in value.items()}
+    item = {
+        key: _normalize_image_details(child, model)
+        for key, child in value.items()
+    }
     if (
         item.get("type") == "input_image"
         and item.get("detail") == "original"
@@ -346,7 +388,8 @@ def _normalize_image_details(value: Any, model: str) -> Any:
 
 def _is_compact_model(model: str) -> bool:
     return any(
-        model == name or model.startswith(f"{name}-") for name in ("gpt-5.4-mini", "gpt-5.4-nano")
+        model == name or model.startswith(f"{name}-")
+        for name in ("gpt-5.4-mini", "gpt-5.4-nano")
     )
 
 
@@ -405,7 +448,9 @@ def _response_tool_calls(response: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _response_has_reasoning(response: dict[str, Any]) -> bool:
-    return any(item.get("type") == "reasoning" for item in _response_output(response))
+    return any(
+        item.get("type") == "reasoning" for item in _response_output(response)
+    )
 
 
 def _response_cost(response: dict[str, Any]) -> float:
@@ -416,7 +461,9 @@ def _response_cost(response: dict[str, Any]) -> float:
 
     uncached_tokens = max(
         0,
-        usage["input_tokens"] - usage["cached_input_tokens"] - usage["cache_write_tokens"],
+        usage["input_tokens"]
+        - usage["cached_input_tokens"]
+        - usage["cache_write_tokens"],
     )
     cache_write_price = spec.cache_write_price or spec.input_price
     return round(
@@ -437,11 +484,19 @@ def _response_token_usage(response: dict[str, Any]) -> dict[str, int]:
         return {}
 
     details = usage.get("input_tokens_details")
-    cached_tokens = _int(details.get("cached_tokens")) if isinstance(details, dict) else 0
-    cache_write_tokens = _int(details.get("cache_write_tokens")) if isinstance(details, dict) else 0
+    cached_tokens = (
+        _int(details.get("cached_tokens")) if isinstance(details, dict) else 0
+    )
+    cache_write_tokens = (
+        _int(details.get("cache_write_tokens"))
+        if isinstance(details, dict)
+        else 0
+    )
     input_tokens = _int(usage.get("input_tokens"))
     output_tokens = _int(usage.get("output_tokens"))
-    total_tokens = _int(usage.get("total_tokens")) or input_tokens + output_tokens
+    total_tokens = (
+        _int(usage.get("total_tokens")) or input_tokens + output_tokens
+    )
     return {
         "input_tokens": input_tokens,
         "cached_input_tokens": cached_tokens,
@@ -479,6 +534,10 @@ def _raise_for_bad_status(response: dict[str, Any], text: str) -> None:
         details = response.get("incomplete_details") or {}
         reason = details.get("reason", "unknown")
         if text:
-            raise ModelError(f"OpenAI response incomplete ({reason}); partial output returned")
-        raise ModelError(f"OpenAI response incomplete ({reason}); no visible output")
+            raise ModelError(
+                f"OpenAI response incomplete ({reason}); partial output returned"
+            )
+        raise ModelError(
+            f"OpenAI response incomplete ({reason}); no visible output"
+        )
     raise ModelError(f"OpenAI response ended with status {status}")

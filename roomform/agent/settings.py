@@ -49,7 +49,9 @@ class Settings(BaseSettings):
         default="high",
         validation_alias="ROOMFORM_REASONING_EFFORT",
     )
-    openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    openai_api_key: str | None = Field(
+        default=None, validation_alias="OPENAI_API_KEY"
+    )
     openai_max_attempts: int = Field(
         default=DEFAULT_OPENAI_MAX_ATTEMPTS,
         ge=1,
@@ -122,7 +124,9 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="OPENROUTER_APP_TITLE",
     )
-    max_turns: int = Field(default=DEFAULT_MAX_TURNS, validation_alias="ROOMFORM_MAX_TURNS")
+    max_turns: int = Field(
+        default=DEFAULT_MAX_TURNS, validation_alias="ROOMFORM_MAX_TURNS"
+    )
     physics_enabled: bool = Field(
         default=False,
         validation_alias="ROOMFORM_PHYSICS",

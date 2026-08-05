@@ -9,4 +9,4 @@ class ModelError(RoomformAgentError):
     """A provider/model call failed."""
 
 
-__all__ = ["RoomformAgentError", "ModelError"]
+__all__ = ["ModelError", "RoomformAgentError"]

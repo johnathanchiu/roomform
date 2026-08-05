@@ -9,6 +9,7 @@ v0 also supports "adopt": attaching already-reconstructed aligned
 meshes (existing SAM3D outputs) to lifted objects by nearest-center
 match — so archived reconstructions plug into fresh scenes.
 """
+
 from __future__ import annotations
 
 import glob
@@ -31,8 +32,11 @@ def _mesh_url(value: object) -> str:
         elif isinstance(item, list):
             for child in item:
                 visit(child)
-        elif (isinstance(item, str) and item.startswith("http")
-              and item.split("?")[0].endswith(".glb")):
+        elif (
+            isinstance(item, str)
+            and item.startswith("http")
+            and item.split("?")[0].endswith(".glb")
+        ):
             urls.append(item)
 
     visit(value)
@@ -41,8 +45,9 @@ def _mesh_url(value: object) -> str:
     return urls[0]
 
 
-def adopt_meshes(objects: list[SceneObject], aligned_dir: str,
-                 max_center_dist: float = 0.75) -> int:
+def adopt_meshes(
+    objects: list[SceneObject], aligned_dir: str, max_center_dist: float = 0.75
+) -> int:
     """Attach existing aligned GLBs to objects by nearest box center.
 
     Expects <aligned_dir>/object-*.glb with a sibling object-*-meta.json
@@ -57,7 +62,8 @@ def adopt_meshes(objects: list[SceneObject], aligned_dir: str,
     for fp in sorted(glob.glob(os.path.join(aligned_dir, "*.glb"))):
         meta = fp.replace(".glb", "-meta.json")
         if os.path.exists(meta):
-            c = json.load(open(meta)).get("center")
+            with open(meta) as fh:
+                c = json.load(fh).get("center")
         else:
             c = trimesh.load(fp).centroid.tolist()
         candidates.append((np.asarray(c, float), fp))
@@ -65,8 +71,10 @@ def adopt_meshes(objects: list[SceneObject], aligned_dir: str,
     for o in objects:
         if not candidates:
             break
-        d = [float(np.linalg.norm(c - np.asarray(o.center)))
-             for c, _ in candidates]
+        d = [
+            float(np.linalg.norm(c - np.asarray(o.center)))
+            for c, _ in candidates
+        ]
         k = int(np.argmin(d))
         if d[k] <= max_center_dist:
             o.mesh_path = candidates[k][1]
@@ -75,17 +83,19 @@ def adopt_meshes(objects: list[SceneObject], aligned_dir: str,
     return n
 
 
-def reconstruct_live(obj: SceneObject, crop_image_path: str,
-                     out_glb: str) -> str:
+def reconstruct_live(
+    obj: SceneObject, crop_image_path: str, out_glb: str
+) -> str:
     """Live SAM3D call (requires FAL_KEY). Kept import-lazy so the
     pipeline works offline with adopt_meshes."""
     import urllib.request
 
     import fal_client
 
-    handle = fal_client.submit(SAM3D_APP,
-                               arguments={"image_url": fal_client.upload_file(
-                                   crop_image_path)})
+    handle = fal_client.submit(
+        SAM3D_APP,
+        arguments={"image_url": fal_client.upload_file(crop_image_path)},
+    )
     url = _mesh_url(handle.get())
     urllib.request.urlretrieve(url, out_glb)
     obj.mesh_path = out_glb
