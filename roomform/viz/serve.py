@@ -52,6 +52,30 @@ def make_handler(artifacts: Path):
             else:
                 self._send(404, "text/plain", b"not found")
 
+        def do_POST(self):
+            if not (
+                self.path.startswith("/api/scenes/")
+                and self.path.endswith("/save")
+            ):
+                self._send(404, "text/plain", b"not found")
+                return
+            name = self.path[len("/api/scenes/") : -len("/save")]
+            target = (artifacts / name / "scene.json").resolve()
+            if (
+                not str(target).startswith(str(artifacts.resolve()))
+                or not target.is_file()
+            ):
+                self._send(403, "text/plain", b"forbidden")
+                return
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            try:
+                doc = json.loads(body)
+            except ValueError:
+                self._send(400, "text/plain", b"bad json")
+                return
+            target.write_text(json.dumps(doc, indent=1))
+            self._send(200, "application/json", b'{"ok": true}')
+
         def _send(self, code: int, ctype: str, body: bytes) -> None:
             self.send_response(code)
             self.send_header("Content-Type", ctype)

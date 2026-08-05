@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>roomform scene viewer</title>
+  <title>roomform scene editor</title>
   <style>
     html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#1c1e22; color:#ddd;
                 font:12px -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif; }
@@ -16,11 +16,21 @@
                   padding:3px 6px; border-radius:6px; cursor:pointer; font:11px ui-monospace,monospace; }
     .scene-link:hover { background:#2c2f36; }
     .scene-link.active { background:#3a4a68; color:#fff; }
-    .obj { padding:2px 6px; font:10px ui-monospace,monospace; color:#bbb; }
+    .obj { padding:2px 6px; font:10px ui-monospace,monospace; color:#bbb; cursor:pointer; border-radius:4px; }
+    .obj:hover { background:#2c2f36; }
+    .obj.selected { background:#3a4a68; color:#fff; }
     .obj .flag { color:#e06666; }
     .title { padding:4px 4px 10px; border-bottom:1px solid #3a3d44; }
     .title strong { display:block; color:#fff; font-size:14px; }
     .title span { color:#9aa; }
+    #toolbar { display:flex; gap:6px; padding:8px 0 0; }
+    #toolbar button { flex:1; border:1px solid #444; background:#26292f; color:#ccc; border-radius:6px;
+                      padding:5px 0; cursor:pointer; font:11px ui-monospace,monospace; }
+    #toolbar button:hover { background:#2f333b; }
+    #toolbar button.on { background:#3a4a68; color:#fff; border-color:#5a6a88; }
+    #save { border-color:#3c6; color:#8ec; }
+    #save.dirty { background:#254435; }
+    #hint { padding:6px 4px 0; color:#778; font-size:10px; }
   </style>
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}</script>
 </head>
@@ -28,6 +38,12 @@
 <div id="scene"></div>
 <div id="panel">
   <div class="title"><strong>roomform</strong><span id="subtitle">pick a scene</span></div>
+  <div id="toolbar">
+    <button id="mode-move" class="on">move (g)</button>
+    <button id="mode-rotate">rotate (r)</button>
+    <button id="save">save</button>
+  </div>
+  <div id="hint">click a box or list row to select; esc deselects</div>
   <h2>scenes</h2><div id="scenes"></div>
   <h2>layers</h2><div id="groups"></div>
   <h2>objects</h2><div id="objects"></div>
@@ -35,6 +51,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -42,6 +59,10 @@ renderer.setSize(innerWidth, innerHeight);
 document.getElementById('scene').appendChild(renderer.domElement);
 const scene3 = new THREE.Scene();
 scene3.background = new THREE.Color(0x1c1e22);
+scene3.add(new THREE.AmbientLight(0xffffff, 1.2));
+const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+dir.position.set(5, -3, 8);
+scene3.add(dir);
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 500);
 camera.position.set(8, -8, 6); camera.up.set(0, 0, 1);
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -51,19 +72,124 @@ addEventListener('resize', () => {
 });
 (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene3, camera); })();
 
-let current = null;
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.addEventListener('dragging-changed', e => { controls.enabled = !e.value; });
+gizmo.addEventListener('objectChange', () => { markDirty(); syncSelected(); });
+scene3.add(gizmo.getHelper());
+
+let current = null;      // GLB root
+let doc = null;          // scene.json
+let sceneName = null;
+let boxGroup = null;     // editable object boxes
+let boxes = [];          // one Group per object
+let selected = -1;
+let dirty = false;
+
+function markDirty() {
+  dirty = true;
+  document.getElementById('save').classList.add('dirty');
+}
+
+function setMode(mode) {
+  gizmo.setMode(mode);
+  // headings are z-yaw only
+  const rot = mode === 'rotate';
+  gizmo.showX = !rot; gizmo.showY = !rot; gizmo.showZ = true;
+  document.getElementById('mode-move').classList.toggle('on', mode === 'translate');
+  document.getElementById('mode-rotate').classList.toggle('on', mode === 'rotate');
+}
+document.getElementById('mode-move').onclick = () => setMode('translate');
+document.getElementById('mode-rotate').onclick = () => setMode('rotate');
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'g') setMode('translate');
+  if (e.key === 'r') setMode('rotate');
+  if (e.key === 'Escape') select(-1);
+});
+
+function syncSelected() {
+  if (selected < 0) return;
+  const g = boxes[selected], o = doc.objects[selected];
+  o.center = [g.position.x, g.position.y, g.position.z];
+  o.heading = g.rotation.z;
+}
+
+function select(i) {
+  selected = i;
+  if (i < 0) gizmo.detach(); else gizmo.attach(boxes[i]);
+  document.querySelectorAll('.obj').forEach((el, k) =>
+    el.classList.toggle('selected', k === i));
+}
+
+function makeBox(o, i) {
+  const g = new THREE.Group();
+  g.position.set(...o.center);
+  g.rotation.z = o.heading || 0;
+  const geo = new THREE.BoxGeometry(...o.size);
+  const leak = (o.qa && o.qa.wall_leak_pts) || 0;
+  const color = leak > 50 ? 0xe05050 : 0xe6a03c;
+  const fill = new THREE.Mesh(geo,
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.07, depthWrite: false }));
+  fill.userData.index = i;
+  g.add(fill);
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color })));
+  return g;
+}
+
+const ray = new THREE.Raycaster();
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (gizmo.dragging || !boxGroup) return;
+  ray.setFromCamera(new THREE.Vector2(
+    (e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
+  const hits = ray.intersectObjects(boxGroup.children, true)
+    .filter(h => h.object.userData.index !== undefined);
+  if (hits.length) select(hits[0].object.userData.index);
+});
+
+document.getElementById('save').onclick = async () => {
+  if (!doc) return;
+  syncSelected();
+  const r = await fetch(`/api/scenes/${sceneName}/save`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(doc),
+  });
+  if (r.ok) { dirty = false; document.getElementById('save').classList.remove('dirty'); }
+  else alert('save failed: ' + r.status);
+};
 
 async function loadScene(name) {
   document.querySelectorAll('.scene-link').forEach(el =>
     el.classList.toggle('active', el.dataset.name === name));
+  select(-1);
   if (current) { scene3.remove(current); current = null; }
+  if (boxGroup) { scene3.remove(boxGroup); boxGroup = null; }
+  sceneName = name;
+  dirty = false;
+  document.getElementById('save').classList.remove('dirty');
   document.getElementById('subtitle').textContent = name;
 
-  const doc = await (await fetch(`/artifacts/${name}/scene.json`)).json();
+  doc = await (await fetch(`/artifacts/${name}/scene.json`)).json();
   const gltf = await new GLTFLoader().loadAsync(`/artifacts/${name}/scene.glb`);
   current = gltf.scene;
-  current.traverse(o => { if (o.isPoints) o.material.size = 0.035; });
+  const baked = [];
+  current.traverse(o => {
+    if (o.isPoints) {
+      o.material.size = 0.035;
+      // object boxes are drawn live from scene.json — hide the baked ones
+      if ((o.name || '').startsWith('objects')) baked.push(o);
+    }
+  });
+  baked.forEach(o => o.removeFromParent());
   scene3.add(current);
+
+  boxGroup = new THREE.Group();
+  boxes = doc.objects.map((o, i) => {
+    const g = makeBox(o, i);
+    boxGroup.add(g);
+    return g;
+  });
+  scene3.add(boxGroup);
 
   const box = new THREE.Box3().setFromObject(current);
   const c = box.getCenter(new THREE.Vector3());
@@ -82,16 +208,25 @@ async function loadScene(name) {
     label.querySelector('input').onchange = e => { g.visible = e.target.checked; };
     gdiv.appendChild(label);
   }
+  const boxLabel = document.createElement('label');
+  boxLabel.className = 'grp';
+  boxLabel.innerHTML = `<input type="checkbox" checked><span class="dot" style="background:#e6a03c"></span>object boxes`;
+  boxLabel.querySelector('input').onchange = e => {
+    boxGroup.visible = e.target.checked;
+    if (!e.target.checked) select(-1);
+  };
+  gdiv.appendChild(boxLabel);
 
   const odiv = document.getElementById('objects');
   odiv.innerHTML = '';
-  for (const o of doc.objects) {
+  doc.objects.forEach((o, i) => {
     const leak = (o.qa && o.qa.wall_leak_pts) || 0;
     const row = document.createElement('div');
     row.className = 'obj';
     row.innerHTML = `${o.cls} <span class="${leak > 50 ? 'flag' : ''}">${leak > 50 ? `leak:${leak}` : ''}</span>`;
+    row.onclick = () => select(i);
     odiv.appendChild(row);
-  }
+  });
 }
 
 const scenes = await (await fetch('/api/scenes')).json();
