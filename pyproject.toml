@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy", "pydantic>=2", "trimesh"]
 
 [project.optional-dependencies]
-dev = ["ruff", "pytest"]
+dev = ["ruff", "pytest", "pyyaml"]
 agent = ["anthropic", "openai", "pydantic-settings", "httpx", "websockets", "google-genai"]
 model = ["torch", "scipy"]
 modal = ["modal"]

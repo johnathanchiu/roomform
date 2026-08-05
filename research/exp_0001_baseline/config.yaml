@@ -1,0 +1,4 @@
+# Overlays on TrainConfig defaults — this experiment IS the defaults.
+epochs: 60
+model:
+  attn_depth: 8

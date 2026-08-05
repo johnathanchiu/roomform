@@ -8,7 +8,7 @@ everything from this config so checkpoints can pin their exact shape
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 N_EDGE_OFFSETS = 13  # forward half of the 26-neighborhood (contract)
 N_NODE_CLASSES = 3  # wall, floor, ceiling
@@ -26,3 +26,9 @@ class ModelConfig(BaseModel):
     head_dim: int = 128  # decoder width
     node_classes: int = N_NODE_CLASSES
     edge_offsets: int = N_EDGE_OFFSETS
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.attn_dim % self.attn_heads:
+            raise ValueError("attn_dim must be divisible by attn_heads")
+        return self
