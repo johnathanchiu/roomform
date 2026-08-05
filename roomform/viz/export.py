@@ -58,7 +58,13 @@ def export_glb(
     out_glb: str,
     evidence_npz: str | None = None,
     max_points: int = 300_000,
+    include_shell: bool | None = None,
 ) -> str:
+    """include_shell=None auto-skips untrained shells (a random-init
+    net marks ~half of ALL cells -> a solid glowing cube that buries
+    everything else)."""
+    if include_shell is None:
+        include_shell = "RANDOM-INIT" not in (doc.shell.model_id or "")
     scene = trimesh.Scene()
     vox = doc.shell.vox_m
 
@@ -74,6 +80,8 @@ def export_glb(
 
     d = np.load(doc.shell.npz_path)
     node = d["node_probs"] > doc.shell.node_threshold
+    if not include_shell:
+        node = node & False
     for k, (name, color) in enumerate(CLASS_COLORS.items()):
         pts = np.argwhere(node[k]) * vox
         if not len(pts):
