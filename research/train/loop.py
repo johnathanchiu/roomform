@@ -21,7 +21,6 @@ import torch
 from research.train.config import TrainConfig
 from research.train.losses import total_loss
 from roomform.eval import evaluate
-from roomform.model.convformer import PatchGraphConvFormer
 
 
 def _log(path: str, rec: dict) -> None:
@@ -31,7 +30,9 @@ def _log(path: str, rec: dict) -> None:
     print(json.dumps(rec), flush=True)
 
 
-def save_checkpoint(out_dir: str, model, opt, epoch: int, cfg: TrainConfig) -> str:
+def save_checkpoint(
+    out_dir: str, model, opt, epoch: int, cfg: TrainConfig
+) -> str:
     path = os.path.join(out_dir, "checkpoint.pt")
     tmp = path + ".tmp"
     torch.save(
@@ -39,7 +40,7 @@ def save_checkpoint(out_dir: str, model, opt, epoch: int, cfg: TrainConfig) -> s
             "model": model.state_dict(),
             "opt": opt.state_dict(),
             "epoch": epoch,
-            "config": cfg.model.model_dump_json(),
+            "config": cfg.model.model_dump(),
             "train_config": cfg.model_dump_json(),
         },
         tmp,
@@ -59,7 +60,7 @@ def train(
     log_path = os.path.join(out_dir, "train_log.jsonl")
     torch.manual_seed(cfg.seed)
 
-    model = PatchGraphConvFormer(cfg.model).to(device)
+    model = cfg.model.build().to(device)
     opt = torch.optim.AdamW(
         model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay
     )
@@ -75,8 +76,8 @@ def train(
             x = torch.as_tensor(item["input"])[None].to(device)
             ngt = torch.as_tensor(item["node_gt"])[None].to(device)
             egt = torch.as_tensor(item["edge_gt"])[None].to(device)
-            node_logits, edge_logits = model(x)
-            loss, parts = total_loss(
+            node_logits, edge_logits = model(x)[:2]
+            loss, _parts = total_loss(
                 node_logits,
                 edge_logits,
                 ngt,
@@ -107,7 +108,7 @@ def train(
             with torch.no_grad():
                 for item in val_data:
                     x = torch.as_tensor(item["input"])[None].to(device)
-                    node_logits, edge_logits = model(x)
+                    node_logits, edge_logits = model(x)[:2]
                     reports.append(
                         evaluate(
                             torch.sigmoid(node_logits)[0].cpu().numpy(),

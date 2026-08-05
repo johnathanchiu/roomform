@@ -38,20 +38,20 @@ def emit(stage: str, **fields) -> None:
     )
 
 
+DEFAULT_CKPT = os.path.join(
+    "checkpoints", "patch-graph-400-offset-isolated-r1.pt"
+)
+
+
 def _random_ckpt(out_dir: str, vox_m: float) -> str:
     import torch
 
     from roomform.model.config import ModelConfig
-    from roomform.model.convformer import PatchGraphConvFormer
 
     cfg = ModelConfig(vox_m=vox_m)
     path = os.path.join(out_dir, "RANDOM-INIT.pt")
     torch.save(
-        {
-            "model": PatchGraphConvFormer(cfg).state_dict(),
-            "config": cfg.model_dump_json(),
-        },
-        path,
+        {"model": cfg.build().state_dict(), "config": cfg.model_dump()}, path
     )
     return path
 
@@ -61,7 +61,11 @@ def _shell_branch(args, out_dir: str):
         args.scan, os.path.join(out_dir, "evidence.npz"), args.vox
     )
     emit("evidence.done", grid=list(evidence.shape))
-    ckpt = args.ckpt or _random_ckpt(out_dir, args.vox)
+    ckpt = args.ckpt or (
+        DEFAULT_CKPT
+        if os.path.exists(DEFAULT_CKPT)
+        else _random_ckpt(out_dir, args.vox)
+    )
 
     from roomform.inference.local import run as run_shell
 

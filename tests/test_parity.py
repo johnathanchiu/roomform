@@ -11,15 +11,16 @@ torch = pytest.importorskip("torch")
 
 def test_checkpoint_roundtrip(tmp_path):
     from roomform.model.config import ModelConfig
-    from roomform.model.convformer import PatchGraphConvFormer
 
-    cfg = ModelConfig(
-        attn_depth=1, stem_dim=16, attn_dim=32, attn_heads=4, head_dim=16
-    )
-    model = PatchGraphConvFormer(cfg)
+    cfg = ModelConfig(base=8, depth=2, heads=2)
+    model = cfg.build()
     path = tmp_path / "checkpoint.pt"
+    # training-only extras (lr, batch, ...) must be tolerated on load
     torch.save(
-        {"model": model.state_dict(), "config": cfg.model_dump_json()},
+        {
+            "model": model.state_dict(),
+            "config": {**cfg.model_dump(), "lr": 3e-4},
+        },
         path,
     )
 
@@ -27,7 +28,7 @@ def test_checkpoint_roundtrip(tmp_path):
 
     loaded, loaded_cfg = load_checkpoint(str(path))
     assert loaded_cfg == cfg
-    x = torch.zeros(1, cfg.in_channels, 8, 8, 8)
+    x = torch.zeros(1, cfg.in_ch, 8, 8, 8)
     nodes, edges = loaded(x)
     assert nodes.shape == (1, 3, 8, 8, 8)
     assert edges.shape == (1, 13, 8, 8, 8)

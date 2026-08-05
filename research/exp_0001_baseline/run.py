@@ -17,7 +17,8 @@ from research.train.loop import train
 def main(data_dir: str, out_dir: str) -> None:
     with open("config.yaml") as f:
         cfg = TrainConfig(**yaml.safe_load(f))
-    train_data, val_data = load_shards(data_dir)  # research/datagen loader
+    raise NotImplementedError("wire research/datagen shard loader here")
+    train_data = val_data = None
     result = train(cfg, train_data, val_data, out_dir)
     print("final:", result)
 

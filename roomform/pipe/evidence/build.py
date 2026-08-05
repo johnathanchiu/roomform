@@ -1,11 +1,14 @@
 """ScanInput -> EvidenceGrid: voxelize a point cloud into the
-observable channels.
+observable channels the model was trained on (see evidence/raw.py).
 
-v0 limitations, by design: without stations (or a ported carve),
-``sf`` is empty and everything non-occupied is unknown —
-``visibility_source="synthesized"`` marks the degradation. Normals are
-used when present in the cloud, else zero-filled (channel-dropout
-territory).
+Accepts a .ply point cloud or a .npz already carrying pts / pts_normal
+/ pts_color. For plys without normals, normals are estimated by local
+PCA over k nearest neighbors after 2 cm dedup — the model only
+consumes |normal|, so sign ambiguity is irrelevant.
+
+v0 limitation, by design: without scanner stations there is no free-
+space carve; ``sf`` is empty and ``visibility_source="synthesized"``
+marks the degradation.
 """
 
 from __future__ import annotations
@@ -14,58 +17,77 @@ import numpy as np
 import trimesh
 
 from roomform.contracts import EvidenceGrid
+from roomform.pipe.evidence.raw import VOX, raw_point_evidence
+
+
+def _dedup_2cm(pts: np.ndarray, colors: np.ndarray | None):
+    """Keep at most one point per 2 cm cell (normal estimation input)."""
+    cells = np.floor(pts / 0.02).astype(np.int64)
+    _, keep = np.unique(cells, axis=0, return_index=True)
+    return pts[keep], colors[keep] if colors is not None else None
+
+
+def _pca_normals(pts: np.ndarray, k: int = 16) -> np.ndarray:
+    from scipy.spatial import cKDTree
+
+    _, nbr = cKDTree(pts).query(pts, k=k)
+    nb = pts[nbr]  # [N, k, 3]
+    nb = nb - nb.mean(1, keepdims=True)
+    cov = np.einsum("nki,nkj->nij", nb, nb) / k
+    _, vecs = np.linalg.eigh(cov)
+    return vecs[:, :, 0].astype(np.float32)  # smallest-eigenvalue axis
+
+
+def _load_scan(scan_path: str):
+    if scan_path.endswith(".npz"):
+        d = np.load(scan_path)
+        pts = d["pts"].astype(np.float32)
+        colors = d["pts_color"] if "pts_color" in d.files else None
+        normals = (
+            d["pts_normal"].astype(np.float32)
+            if "pts_normal" in d.files
+            else None
+        )
+        return pts, colors, normals
+    mesh = trimesh.load(scan_path)
+    pts = np.asarray(mesh.vertices, dtype=np.float32)
+    colors = getattr(getattr(mesh, "visual", None), "vertex_colors", None)
+    if colors is not None and len(colors) == len(pts):
+        colors = np.asarray(colors)[:, :3]
+    else:
+        colors = None
+    return pts, colors, None
 
 
 def build_evidence(
-    scan_path: str, out_npz: str, vox_m: float = 0.08
+    scan_path: str, out_npz: str, vox_m: float = VOX
 ) -> EvidenceGrid:
-    mesh = trimesh.load(scan_path)
-    pts = np.asarray(mesh.vertices, dtype=np.float32)
-    origin = pts.min(0) - vox_m
-    idx = np.floor((pts - origin) / vox_m).astype(np.int64)
-    shape = tuple(int(v) for v in idx.max(0) + 2)
+    pts, colors, normals = _load_scan(scan_path)
+    origin = pts.min(0)
+    pts = pts - origin
+    if normals is None:
+        pts, colors = _dedup_2cm(pts, colors)
+        normals = _pca_normals(pts)
 
-    occ = np.zeros(shape, np.uint8)
-    occ[idx[:, 0], idx[:, 1], idx[:, 2]] = 1
+    # aligned to a multiple of 8 so the UNet needs no crop bookkeeping
+    shape = tuple(
+        int(v)
+        for v in (np.ceil((np.ceil(pts.max(0) / vox_m) + 1) / 8) * 8).astype(
+            int
+        )
+    )
+    raw = {"pts": pts, "pts_normal": normals}
+    if colors is not None:
+        raw["pts_color"] = colors
+    features = raw_point_evidence(
+        raw, shape, "grayscale", include_local_offsets=True
+    )
 
-    flat = np.ravel_multi_index(idx.T, shape)
-    counts = np.bincount(flat, minlength=int(np.prod(shape))).reshape(shape)
-    log_density = np.log1p(counts).astype(np.float16)
-
-    gray = np.zeros(shape, np.uint8)
-    colors = getattr(getattr(mesh, "visual", None), "vertex_colors", None)
-    if colors is not None and len(colors) == len(pts):
-        lum = np.asarray(colors)[:, :3].mean(1)
-        acc = np.bincount(flat, weights=lum, minlength=counts.size)
-        with np.errstate(invalid="ignore"):
-            mean = np.where(
-                counts.reshape(-1) > 0, acc / counts.reshape(-1).clip(1), 0
-            )
-        gray = mean.reshape(shape).astype(np.uint8)
-
-    nrm_abs = np.zeros((3, *shape), np.float16)
-    normals = getattr(mesh, "vertex_normals", None)
-    if normals is not None and len(normals) == len(pts):
-        for a in range(3):
-            acc = np.bincount(
-                flat,
-                weights=np.abs(np.asarray(normals)[:, a]),
-                minlength=counts.size,
-            )
-            nrm_abs[a] = (
-                (acc / counts.reshape(-1).clip(1))
-                .reshape(shape)
-                .astype(np.float16)
-            )
-
-    sf = np.zeros(shape, np.uint8)  # v0: no carve — all non-occ unknown
     np.savez_compressed(
         out_npz,
-        occ=occ,
-        sf=sf,
-        gray=gray,
-        nrm_abs=nrm_abs,
-        log_density=log_density,
+        features=features.astype(np.float16),
+        occ=(features[0] > 0).astype(np.uint8),
+        sf=np.zeros(shape, np.uint8),  # v0: no carve — all non-occ unknown
     )
     return EvidenceGrid(
         npz_path=out_npz,

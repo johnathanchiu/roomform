@@ -13,44 +13,35 @@ import torch
 
 from roomform.contracts import EvidenceGrid, PatchGraph
 from roomform.model.config import ModelConfig
-from roomform.model.convformer import PatchGraphConvFormer
 
 
 def load_checkpoint(path: str, device: str = "cpu"):
     ck = torch.load(path, map_location=device, weights_only=True)
-    cfg = (
-        ModelConfig(**json.loads(ck["config"]))
-        if "config" in ck
-        else ModelConfig()
-    )
-    model = PatchGraphConvFormer(cfg)
+    raw_cfg = ck.get("config", {})
+    if isinstance(raw_cfg, str):
+        raw_cfg = json.loads(raw_cfg)
+    cfg = ModelConfig(**raw_cfg)
+    model = cfg.build()
     model.load_state_dict(ck["model"])
     return model.to(device).eval(), cfg
 
 
-def build_input(evidence: EvidenceGrid) -> np.ndarray:
-    """Stack the observable channels the contract defines, in order:
-    occ, gray, |nrm| xyz, log_density. Missing optional channels are
-    zero-filled (pair with a model trained with channel dropout)."""
+def build_input(evidence: EvidenceGrid, cfg: ModelConfig) -> np.ndarray:
+    """Slice the stored observable channels to what the checkpoint was
+    trained on: first 6 (occ, gray, |nrm| xyz, density), +3 local
+    offsets for in_ch=9, +1 zero visibility channel if the model
+    expects one (archived scans carry no scanner origins)."""
     d = np.load(evidence.npz_path)
-    x, y, z = evidence.shape
-    occ = (d["occ"] > 0).astype(np.float32)
-    gray = (
-        d["gray"].astype(np.float32) / 255.0
-        if "gray" in d.files
-        else np.zeros_like(occ)
-    )
-    nrm = (
-        np.abs(d["nrm_abs"].astype(np.float32))
-        if "nrm_abs" in d.files
-        else np.zeros((3, x, y, z), np.float32)
-    )
-    dens = (
-        d["log_density"].astype(np.float32)
-        if "log_density" in d.files
-        else np.zeros_like(occ)
-    )
-    return np.concatenate([occ[None], gray[None], nrm, dens[None]])
+    features = d["features"].astype(np.float32)
+    need = cfg.in_ch - (1 if cfg.opening_visibility else 0)
+    if features.shape[0] < need:
+        raise ValueError(
+            f"evidence has {features.shape[0]} channels, model needs {need}"
+        )
+    x = features[:need]
+    if cfg.opening_visibility:
+        x = np.concatenate([x, np.zeros_like(x[:1])])
+    return x
 
 
 def run(
@@ -61,25 +52,23 @@ def run(
     node_threshold: float = 0.5,
     edge_threshold: float = 0.5,
 ) -> PatchGraph:
-    model, _cfg = load_checkpoint(ckpt_path, device)
-    x = torch.from_numpy(build_input(evidence))[None].to(device)
-    pad = [
-        (cfg_pool - s % cfg_pool) % cfg_pool
-        for s, cfg_pool in zip(x.shape[2:], [model.cfg.attn_pool] * 3)
-    ]
-    if any(pad):
-        x = torch.nn.functional.pad(x, (0, pad[2], 0, pad[1], 0, pad[0]))
+    model, cfg = load_checkpoint(ckpt_path, device)
+    x = torch.from_numpy(build_input(evidence, cfg))[None].to(device)
     with torch.no_grad():
-        node_logits, edge_logits = model(x)
+        out = model(x)  # model pads to /8 internally
     sx, sy, sz = evidence.shape
-    nodes = torch.sigmoid(node_logits)[0, :, :sx, :sy, :sz]
-    edges = torch.sigmoid(edge_logits)[0, :, :sx, :sy, :sz]
+    nodes = torch.sigmoid(out[0])[0, :, :sx, :sy, :sz]
+    edges = torch.sigmoid(out[1])[0, :, :sx, :sy, :sz]
+    arrays = {
+        "node_probs": nodes.cpu().numpy().astype(np.float16),
+        "edge_probs": edges.cpu().numpy().astype(np.float16),
+    }
+    if cfg.predict_offsets:
+        arrays["offsets"] = (
+            out[2][0, :, :sx, :sy, :sz].cpu().numpy().astype(np.float16)
+        )
     os.makedirs(os.path.dirname(out_npz) or ".", exist_ok=True)
-    np.savez_compressed(
-        out_npz,
-        node_probs=nodes.cpu().numpy().astype(np.float16),
-        edge_probs=edges.cpu().numpy().astype(np.float16),
-    )
+    np.savez_compressed(out_npz, **arrays)
     return PatchGraph(
         npz_path=out_npz,
         vox_m=evidence.vox_m,

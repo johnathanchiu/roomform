@@ -35,8 +35,12 @@ Tri-state observability, the model-facing input:
 | `sf` | u8 | ray provably traversed — structure impossible |
 | *(derived)* unknown | — | `~occ & ~sf` — never stored |
 
-Optional observable channels (no semantics, raw-recoverable):
-`gray u8`, `nrm_abs [3,...] f16`, `log_density f16`.
+Observable channels are stored pre-stacked as
+`features [9,X,Y,Z] f16` in the exact training construction
+(`roomform/pipe/evidence/raw.py`): occupancy, grayscale, |normal|
+xyz, log-density / 7 clipped to [0,1], mean sub-voxel offset xyz.
+Points are deduped to max 3 per 2 cm cell before voxelization.
+Grid extents are ceiled to multiples of 8 (UNet stride).
 
 Invariants: `occ & sf` disjoint. `vox_m ∈ {0.02, 0.04, 0.08}`.
 
@@ -53,14 +57,17 @@ The shell as a connected surface graph at grid resolution:
 - `edge_probs [13,X,Y,Z] f16` — forward half of the 26-neighborhood.
   `edge_probs[k]` at cell `c` scores the connection `c -> c+OFFSETS[k]`.
 
-`OFFSETS` (fixed order; reverse edges implied):
+`OFFSETS` (fixed order; reverse edges implied). The order is the
+lexicographic-forward half of the 26-neighborhood, generated dx -> dy
+-> dz — the authoritative definition is `EDGE_OFFSETS` in
+`roomform/model/convformer.py`:
 
 ```
 k : (di,dj,dk)
-0 : ( 1, 0, 0)   1 : ( 0, 1, 0)   2 : ( 0, 0, 1)
-3 : ( 1, 1, 0)   4 : ( 1,-1, 0)   5 : ( 1, 0, 1)
-6 : ( 1, 0,-1)   7 : ( 0, 1, 1)   8 : ( 0, 1,-1)
-9 : ( 1, 1, 1)  10 : ( 1, 1,-1)  11 : ( 1,-1, 1)  12 : ( 1,-1,-1)
+0 : ( 0, 0, 1)   1 : ( 0, 1,-1)   2 : ( 0, 1, 0)   3 : ( 0, 1, 1)
+4 : ( 1,-1,-1)   5 : ( 1,-1, 0)   6 : ( 1,-1, 1)   7 : ( 1, 0,-1)
+8 : ( 1, 0, 0)   9 : ( 1, 0, 1)  10 : ( 1, 1,-1)  11 : ( 1, 1, 0)
+12 : ( 1, 1, 1)
 ```
 
 Openings: v0.1 represents doors/windows as *absence* of nodes/edges.
@@ -82,3 +89,9 @@ keys — no breaking change.
 
 - **0.1.0** — initial: four-document spine, tri-state evidence,
   patch-graph 13-edge convention, scene doc with QA.
+- **0.1.1** — OFFSETS table corrected to the trained model's
+  lexicographic order; evidence stores stacked `features` (the
+  training channel construction) instead of separate raw arrays;
+  PatchGraph npz gains optional `offsets [3,X,Y,Z] f16` (sub-voxel
+  surface refinement, voxel-width units) when the checkpoint
+  predicts them.

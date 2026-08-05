@@ -1,34 +1,44 @@
 """Model configuration — the shape contract for the patch-graph net.
 
-The numbers here mirror docs/data-contracts.md: observable input
-channels in, node/edge probability grids out. The architecture reads
-everything from this config so checkpoints can pin their exact shape
-(a checkpoint npz/pt carries its ModelConfig as JSON metadata).
+Field names match the ``config`` dict stored in training checkpoints
+(``{"model": state_dict, "config": {...}}``), so a checkpoint's config
+loads directly: ``ModelConfig(**ckpt["config"])``. Extra training-only
+keys (lr, batch, init_checkpoint, ...) are ignored.
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict
 
 N_EDGE_OFFSETS = 13  # forward half of the 26-neighborhood (contract)
 N_NODE_CLASSES = 3  # wall, floor, ceiling
 
 
 class ModelConfig(BaseModel):
-    vox_m: float = 0.08
-    in_channels: int = 6  # occ, gray, |nrm| xyz, log-density
-    stem_dim: int = 64  # local conv feature width
-    stem_depth: int = 2  # conv blocks before attention
-    attn_dim: int = 384  # global attention width
-    attn_depth: int = 8
-    attn_heads: int = 6
-    attn_pool: int = 4  # spatial downsample factor into attention
-    head_dim: int = 128  # decoder width
-    node_classes: int = N_NODE_CLASSES
-    edge_offsets: int = N_EDGE_OFFSETS
+    model_config = ConfigDict(extra="ignore", protected_namespaces=())
 
-    @model_validator(mode="after")
-    def _check(self):
-        if self.attn_dim % self.attn_heads:
-            raise ValueError("attn_dim must be divisible by attn_heads")
-        return self
+    vox_m: float = 0.08
+    in_ch: int = 6  # occ, gray, |nrm| xyz, log-density (+3 local offsets if 9)
+    base: int = 48  # UNet width; bottleneck is 8 * base
+    depth: int = 6  # attention blocks in the bottleneck
+    heads: int = 8
+    predict_offsets: bool = False  # sub-voxel surface refinement head
+    predict_openings: bool = False  # door/window channels
+    predict_micro: bool = False  # sparse 2 cm micro decoder
+    opening_visibility: bool = False  # extra visibility input channel
+    isolated_refinement: bool = False  # offsets fed via separate stem
+
+    def build(self):
+        from roomform.model.convformer import PatchGraphConvFormer
+
+        return PatchGraphConvFormer(
+            in_ch=self.in_ch,
+            base=self.base,
+            depth=self.depth,
+            heads=self.heads,
+            predict_offsets=self.predict_offsets,
+            predict_openings=self.predict_openings,
+            predict_micro=self.predict_micro,
+            opening_visibility=self.opening_visibility,
+            isolated_refinement=self.isolated_refinement,
+        )
