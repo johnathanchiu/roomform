@@ -70,6 +70,14 @@ from roomform.pipe.reconstruction.sam3d import adopt_meshes, reconstruct_live
 copies them into the scene's artifact dir; `reconstruct_live` calls
 FAL SAM 3D on an object crop image (needs `FAL_KEY`).
 
+Object lifting backends (`--lifter`), with upstream licenses:
+
+| backend | model | upstream license |
+|---|---|---|
+| `pointlabel` (default) | PTv3 ScanNet semseg + local clustering | MIT (ScanNet data ToU applies) |
+| `spatiallm` | SpatialLM 1.1 Qwen-0.5B | CC BY-NC 4.0 |
+| `unidet3d` (eval) | UniDet3D multi-dataset detector | CC BY-NC 4.0, axis-aligned boxes |
+
 ## View and edit results
 
     uv run python viewer/serve.py          # http://127.0.0.1:8790
