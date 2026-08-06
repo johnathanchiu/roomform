@@ -69,6 +69,7 @@ addEventListener('resize', () => {
 (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene3, camera); })();
 
 let current = null;      // GLB root
+let rgbCloud = null;     // full-res display cloud
 let doc = null;          // scene.json
 let sceneName = null;
 let boxGroup = null;     // editable object boxes
@@ -212,6 +213,7 @@ async function loadScene(name) {
   select(-1);
   if (current) { scene3.remove(current); current = null; }
   if (boxGroup) { scene3.remove(boxGroup); boxGroup = null; }
+  if (rgbCloud) { scene3.remove(rgbCloud); rgbCloud = null; }
   sceneName = name;
   dirty = false;
   document.getElementById('save').classList.remove('dirty');
@@ -278,6 +280,7 @@ async function loadScene(name) {
         size: 0.02, vertexColors: geo.hasAttribute('color') }));
       cloud.name = 'rgb cloud';
       if (sceneName === name) {
+        rgbCloud = cloud;
         scene3.add(cloud);
         groups.unshift(cloud);
         const ev = groups.find(g => (g.name || '') === 'evidence');
