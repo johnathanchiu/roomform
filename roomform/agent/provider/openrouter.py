@@ -34,7 +34,7 @@ class OpenRouterModel:
             )
         if not self.config.openrouter_model.strip():
             raise ModelError(
-                "OpenRouter model is required. Pass --model or set MINI_ARTICRAFT_OPENROUTER_MODEL."
+                "OpenRouter model is required. Pass --model or set ROOMFORM_OPENROUTER_MODEL."
             )
         self._client = client
 

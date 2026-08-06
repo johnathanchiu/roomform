@@ -1,7 +1,13 @@
 [project]
 name = "roomform"
 version = "0.1.0"
-description = "Indoor structure completion: scan -> tri-state evidence -> shell patch-graph -> scene document"
+description = "Parses point cloud indoor scans into structured, editable scenes"
+readme = "README.md"
+authors = [
+    {name = "Johnathan Chiu"},
+    {name = "Matthew Zhou"},
+    {name = "Preston Bourne"},
+]
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
 dependencies = ["numpy", "pydantic>=2", "trimesh"]

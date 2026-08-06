@@ -341,10 +341,8 @@ def export_fixtures(
 
 # ----------------------------------------------------------------- cli ----
 
-DEFAULT_FIXTURES = (
-    "/Users/johnathanchiu/Projects/spatial-computing/mono/roomform/"
-    "apps/viewer/dist/fixtures"
-)
+# fixtures dir of a production-editor build; no public default
+DEFAULT_FIXTURES = os.environ.get("ROOMFORM_FIXTURES", "")
 
 
 def main() -> None:
@@ -358,7 +356,12 @@ def main() -> None:
 
     fix = sub.add_parser("fixtures", help="scene dir -> demo editor fixture")
     fix.add_argument("scene_dir")
-    fix.add_argument("--fixtures", default=DEFAULT_FIXTURES)
+    fix.add_argument(
+        "--fixtures",
+        default=DEFAULT_FIXTURES,
+        required=not DEFAULT_FIXTURES,
+        help="editor fixtures dir (or set ROOMFORM_FIXTURES)",
+    )
     fix.add_argument("--id", default="")
     fix.add_argument("--title", default="")
 
