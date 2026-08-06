@@ -25,12 +25,6 @@
     .title { padding:4px 4px 10px; border-bottom:1px solid #3a3d44; }
     .title strong { display:block; color:#fff; font-size:14px; }
     .title span { color:#9aa; }
-    #toolbar { display:flex; gap:6px; padding:8px 0 0; }
-    #toolbar button { flex:1; border:1px solid #444; background:#26292f; color:#ccc; border-radius:6px;
-                      padding:5px 0; cursor:pointer; font:11px ui-monospace,monospace; }
-    #toolbar button:hover { background:#2f333b; }
-    #save { border-color:#3c6; color:#8ec; }
-    #save.dirty { background:#254435; }
     #hint { padding:6px 4px 0; color:#778; font-size:10px; line-height:1.5; }
   </style>
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}</script>
@@ -39,9 +33,8 @@
 <div id="scene"></div>
 <div id="panel">
   <div class="title"><strong>roomform debug</strong><span id="subtitle">pick a scene</span></div>
-  <div id="toolbar"><button id="save">save</button></div>
-  <div id="hint">drag: slide on floor &middot; shift-drag: raise/lower &middot; Q/E rotate<br>
-    WASD nudge &middot; del: remove &middot; dbl-click row: rename &middot; esc deselect</div>
+  <div id="hint">inspect only — edits are local and vanish on reload<br>
+    drag/QE/WASD move &middot; del hides &middot; dbl-click row renames &middot; esc deselect</div>
   <h2>scenes</h2><div id="scenes"></div>
   <h2>layers</h2><div id="groups"></div>
   <h2>objects</h2><div id="objects"></div>
@@ -77,12 +70,6 @@ let sceneName = null;
 let boxGroup = null;     // editable object boxes
 let boxes = [];          // one Group per object
 let selected = -1;
-let dirty = false;
-
-function markDirty() {
-  dirty = true;
-  document.getElementById('save').classList.add('dirty');
-}
 
 function syncSelected() {
   if (selected < 0) return;
@@ -173,7 +160,7 @@ renderer.domElement.addEventListener('pointermove', e => {
     if (hit) { g.position.x = hit.x + drag.offset.x; g.position.y = hit.y + drag.offset.y; }
   }
   drag.moved = true;
-  markDirty(); syncSelected();
+  syncSelected();
 });
 
 addEventListener('pointerup', () => {
@@ -192,7 +179,7 @@ function renderObjectRows() {
     row.onclick = () => select(i);
     row.ondblclick = () => {
       const cls = prompt('class', o.cls);
-      if (cls) { o.cls = cls; markDirty(); renderObjectRows(); select(i); }
+      if (cls) { o.cls = cls; renderObjectRows(); select(i); }
     };
     row.querySelector('.del').onclick = e => {
       e.stopPropagation(); select(i); deleteSelected();
@@ -211,7 +198,6 @@ function deleteSelected() {
   boxes.forEach((b, j) => b.traverse(o => {
     if (o.userData.index !== undefined) o.userData.index = j;
   }));
-  markDirty();
   renderObjectRows();
 }
 
@@ -233,20 +219,9 @@ addEventListener('keydown', e => {
   else if (k === 'd') g.position.x += step;
   else return;
   e.preventDefault();
-  markDirty(); syncSelected();
+  syncSelected();
 });
 // ----------------------------------------------------------------------
-
-document.getElementById('save').onclick = async () => {
-  if (!doc) return;
-  syncSelected();
-  const r = await fetch(`/api/scenes/${sceneName}/save`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(doc),
-  });
-  if (r.ok) { dirty = false; document.getElementById('save').classList.remove('dirty'); }
-  else alert('save failed: ' + r.status);
-};
 
 async function loadScene(name) {
   document.querySelectorAll('.scene-link').forEach(el =>
@@ -256,8 +231,6 @@ async function loadScene(name) {
   if (boxGroup) { scene3.remove(boxGroup); boxGroup = null; }
   if (rgbCloud) { scene3.remove(rgbCloud); rgbCloud = null; }
   sceneName = name;
-  dirty = false;
-  document.getElementById('save').classList.remove('dirty');
   document.getElementById('subtitle').textContent = name;
 
   doc = await (await fetch(`/artifacts/${name}/scene.json`)).json();
