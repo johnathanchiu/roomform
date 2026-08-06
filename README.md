@@ -106,8 +106,8 @@ into its fixture format and appear at runtime, no editor changes:
     uv run python -m roomform.export fixtures artifacts/<scene>
     uv run python viewer/serve_demo.py PATH/TO/editor/dist   # :8792
 
-`--fixtures DIR` overrides the fixtures directory (the default
-currently points at a local editor build).
+Point `--fixtures` (or the `ROOMFORM_FIXTURES` env var) at the
+editor build's fixtures directory.
 
 `scene.glb` is also self-contained: drop it into any glTF viewer.
 
