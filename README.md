@@ -152,9 +152,14 @@ This work is generously supported by [Modal](https://modal.com) and
 
 Object lifting uses [SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
 (Manycore Research); object mesh reconstruction uses
-[SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via fal.ai.
-Benchmark scenes in the docs come from Redwood, ARKitScenes, SceneNN,
-CV4AEC, and HouseLayout3D.
+[SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via
+[fal.ai](https://fal.ai/models/fal-ai/sam-3/3d-objects).
+Benchmark scenes in the docs come from
+[Redwood](http://redwood-data.org/indoor/),
+[ARKitScenes](https://github.com/apple/ARKitScenes),
+[SceneNN](https://hkust-vgd.github.io/scenenn/),
+[CV4AEC](https://cv4aec.github.io/), and
+[HouseLayout3D](https://houselayout3d.github.io/).
 
 ## License
 
