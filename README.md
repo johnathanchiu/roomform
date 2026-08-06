@@ -161,5 +161,5 @@ Benchmark scenes in the docs come from
 ## License
 
 - Code: [Apache 2.0](LICENSE)
-- Trained weights and `research/datagen/`: [CC BY-NC 4.0](RESEARCH-LICENSE)
+- Trained weights and `research/datagen/`: [CC BY-NC 4.0](LICENSE-WEIGHTS)
   — free for research; commercial use needs a separate license.
