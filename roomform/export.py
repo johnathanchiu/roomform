@@ -207,11 +207,70 @@ def export_fixtures(
         os.path.join(out, "editable.glb")
     )
 
+    # per-object measured meshes: the editor makes an object draggable
+    # only when its proposal carries measured_mesh_uri, so carve each
+    # object's points into a small voxel mesh. Labeled points when the
+    # pointlabel lifter ran; raw evidence points otherwise.
+    labels_path = os.path.join(scene_dir, "labels.npz")
+    if os.path.exists(labels_path):
+        lab = np.load(labels_path)
+        lab_pts = lab["pts"].astype(np.float32) - np.asarray(
+            doc["frame_shift"], np.float32
+        )
+        lab_cls = [str(c) for c in lab["classes"][lab["label"]]]
+    else:
+        lab_pts = (np.argwhere(occ) + 0.5) * vox
+        lab_cls = None
+    obj_dir = os.path.join(out, "objects")
+    os.makedirs(obj_dir, exist_ok=True)
+
+    def _object_mesh(i: int, o: dict) -> str | None:
+        c, s_ = np.asarray(o["center"]), np.asarray(o["size"])
+        h = math.cos(o["heading"]), math.sin(o["heading"])
+        rel = lab_pts - c
+        rot = np.stack(
+            [
+                rel[:, 0] * h[0] + rel[:, 1] * h[1],
+                -rel[:, 0] * h[1] + rel[:, 1] * h[0],
+                rel[:, 2],
+            ],
+            1,
+        )
+        inside = np.all(np.abs(rot) <= s_ / 2 + 0.06, axis=1)
+        if lab_cls is not None:
+            inside &= (
+                np.fromiter(
+                    (lab_cls[j] == o["cls"] for j in range(len(lab_cls))),
+                    bool,
+                    len(lab_cls),
+                )
+                | ~inside
+            )  # keep the box filter authoritative
+            inside = np.all(np.abs(rot) <= s_ / 2 + 0.06, axis=1) & (
+                np.asarray(lab_cls) == o["cls"]
+            )
+        pts_i = lab_pts[inside]
+        if len(pts_i) < 30:
+            return None
+        grid = np.floor(pts_i / 0.04).astype(np.int64)
+        gmin = grid.min(0)
+        m = np.zeros(grid.max(0) - gmin + 1, bool)
+        m[tuple((grid - gmin).T)] = True
+        colors = np.zeros((*m.shape, 4), np.uint8)
+        colors[m] = MEASURED
+        mesh = trimesh.voxel.VoxelGrid(m).as_boxes(colors=colors)
+        mesh.apply_scale(0.04)
+        mesh.apply_translation(gmin * 0.04 - [center[0], center[1], 0.0])
+        path = os.path.join(obj_dir, f"object-{i}.glb")
+        mesh.export(path)
+        return f"/fixtures/{scene_id}/objects/object-{i}.glb"
+
     # analysis: objects in the editor's y-up frame
     objects = []
     for i, o in enumerate(doc["objects"]):
         cx, cy, cz = o["center"]
         sx, sy, sz = o["size"]
+        mesh_uri = _object_mesh(i, o)
         objects.append(
             {
                 "id": f"spatiallm-{i}",
@@ -228,6 +287,11 @@ def export_fixtures(
                 "confidence": 0.7,
                 "method": "spatiallm",
                 "source_views": [],
+                **(
+                    {"measured_mesh_uri": mesh_uri, "measured_mesh_z_up": True}
+                    if mesh_uri
+                    else {}
+                ),
             }
         )
     analysis = {
