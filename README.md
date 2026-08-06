@@ -9,12 +9,19 @@ architecture; code transfers in behind them):
 
     ScanInput -> EvidenceGrid -> PatchGraph -> SceneDocument
 
-The shell model is a patch-graph ConvFormer: raw 8 cm observable
+The boundary model is a patch-graph ConvFormer: raw 8 cm observable
 evidence (occupancy, grayscale, |normal|, density) in, three surface
 node classes (wall/floor/ceiling) plus 13 forward-edge connectivity
 channels out. No semantic inputs, no deterministic compiler. Objects
 come from SpatialLM box lifting, with optional SAM 3D mesh
 reconstruction.
+
+Measured (held-out synthetic rooms): boundary F1 0.98, occluded-
+boundary F1 0.94, connectivity F1 0.97 at 8 cm. On real scans
+(Redwood, ARKitScenes, SceneNN) roughly a third of the predicted
+boundary lands on cells the scanner never observed — the model infers
+structure behind furniture and between scan stations. A scene runs
+end-to-end in ~10 s on a laptop CPU once object lifting returns.
 
 ## Setup
 
@@ -125,3 +132,22 @@ written in the documented format must round-trip through
     │                        with the package is enforced by tests)
     ├── docs/                data contracts + migration log
     └── artifacts/           pipeline outputs (gitignored)
+
+## Citation
+
+If you use roomform in your research, please cite:
+
+```bibtex
+@software{roomform2026,
+  title  = {roomform: parsing point cloud indoor scans into
+            structured, editable scenes},
+  author = {Chiu, Johnathan and Zhou, Matthew and Bourne, Preston},
+  year   = {2026},
+}
+```
+
+Object lifting uses [SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
+(Manycore Research); object mesh reconstruction uses
+[SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via fal.ai.
+Benchmark scenes in the docs come from Redwood, ARKitScenes, SceneNN,
+CV4AEC, and HouseLayout3D.

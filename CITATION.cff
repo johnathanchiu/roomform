@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use roomform in your research, please cite it as below."
+title: "roomform: parsing point cloud indoor scans into structured, editable scenes"
+type: software
+authors:
+  - family-names: Chiu
+    given-names: Johnathan
+  - family-names: Zhou
+    given-names: Matthew
+  - family-names: Bourne
+    given-names: Preston
+year: 2026
