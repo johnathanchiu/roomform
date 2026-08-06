@@ -4,24 +4,21 @@ Parses point cloud indoor scans into structured, editable
 scenes: room boundaries (walls, floors, ceilings — inferred
 through occlusion) + objects out.
 
-Pipeline spine (see docs/data-contracts.md — the contracts ARE the
-architecture; code transfers in behind them):
+Pipeline spine ([data contracts](docs/data-contracts.md)):
 
     ScanInput -> EvidenceGrid -> PatchGraph -> SceneDocument
 
-The boundary model is a patch-graph ConvFormer: raw 8 cm observable
-evidence (occupancy, grayscale, |normal|, density) in, three surface
-node classes (wall/floor/ceiling) plus 13 forward-edge connectivity
-channels out. No semantic inputs, no deterministic compiler. Objects
-come from SpatialLM box lifting, with optional SAM 3D mesh
-reconstruction.
+Boundaries come from a patch-graph ConvFormer
+([how the model works](roomform/model/README.md)) — observable
+evidence in, surface nodes + connectivity out; no semantic inputs, no
+deterministic compiler. Objects come from
+[SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
+box lifting, with optional
+[SAM 3D](https://ai.meta.com/sam3d/) mesh reconstruction.
 
-Measured (held-out synthetic rooms): boundary F1 0.98, occluded-
-boundary F1 0.94, connectivity F1 0.97 at 8 cm. On real scans
-(Redwood, ARKitScenes, SceneNN) roughly a third of the predicted
-boundary lands on cells the scanner never observed — the model infers
-structure behind furniture and between scan stations. A scene runs
-end-to-end in ~10 s on a laptop CPU once object lifting returns.
+Boundary F1 0.98 (0.94 in occluded regions) on held-out synthetic
+rooms; on real scans roughly a third of the predicted boundary is
+structure the scanner never saw. ~10 s per scene on a laptop CPU.
 
 ## Setup
 
