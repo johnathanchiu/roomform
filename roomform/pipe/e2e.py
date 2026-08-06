@@ -41,6 +41,21 @@ def emit(stage: str, **fields) -> None:
 DEFAULT_CKPT = os.path.join(
     "checkpoints", "patch-graph-joint-rgb-55m-offset-head-r2.pt"
 )
+WEIGHTS_URL = (
+    "https://huggingface.co/jchiu/roomform/resolve/main/"
+    "patch-graph-joint-rgb-55m-offset-head-r2.pt"
+)
+
+
+def _fetch_default_ckpt() -> str:
+    """Plain-HTTPS download of the default weights — no hub client."""
+    import urllib.request
+
+    os.makedirs(os.path.dirname(DEFAULT_CKPT), exist_ok=True)
+    tmp = DEFAULT_CKPT + ".part"
+    urllib.request.urlretrieve(WEIGHTS_URL, tmp)
+    os.replace(tmp, DEFAULT_CKPT)
+    return DEFAULT_CKPT
 
 
 def _random_ckpt(out_dir: str, vox_m: float) -> str:
@@ -61,11 +76,18 @@ def _shell_branch(args, out_dir: str):
         args.scan, os.path.join(out_dir, "evidence.npz"), args.vox
     )
     emit("evidence.done", grid=list(evidence.shape))
-    ckpt = args.ckpt or (
-        DEFAULT_CKPT
-        if os.path.exists(DEFAULT_CKPT)
-        else _random_ckpt(out_dir, args.vox)
-    )
+    ckpt = args.ckpt
+    if not ckpt:
+        if os.path.exists(DEFAULT_CKPT):
+            ckpt = DEFAULT_CKPT
+        else:
+            try:
+                emit("weights.downloading", url=WEIGHTS_URL)
+                ckpt = _fetch_default_ckpt()
+                emit("weights.done", path=ckpt)
+            except OSError:
+                emit("weights.unavailable", fallback="RANDOM-INIT")
+                ckpt = _random_ckpt(out_dir, args.vox)
 
     from roomform.inference.local import run as run_shell
 

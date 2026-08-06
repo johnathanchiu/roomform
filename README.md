@@ -37,9 +37,12 @@ Credentials, only for the stages that use them:
 
 ## Checkpoint
 
-Trained weights are not in git. Drop a checkpoint at
-`checkpoints/patch-graph-joint-rgb-55m-offset-head-r2.pt` and the pipeline
-picks it up automatically (`--ckpt` overrides the path). Checkpoints
+Weights live on the Hugging Face Hub at
+[jchiu/roomform](https://huggingface.co/jchiu/roomform) (CC BY-NC 4.0)
+and the pipeline downloads the default automatically on first run —
+or drop any checkpoint at
+`checkpoints/patch-graph-joint-rgb-55m-offset-head-r2.pt` yourself
+(`--ckpt` overrides the path). Checkpoints
 are `{"model": state_dict, "config": {...}}`; the config dict is what
 `roomform.model.config.ModelConfig` reads, so any compatible training
 run loads directly. Without a checkpoint the pipeline falls back to
