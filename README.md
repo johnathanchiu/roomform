@@ -151,3 +151,11 @@ Object lifting uses [SpatialLM](https://huggingface.co/manycore-research/Spatial
 [SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via fal.ai.
 Benchmark scenes in the docs come from Redwood, ARKitScenes, SceneNN,
 CV4AEC, and HouseLayout3D.
+
+## License
+
+Code — pipeline, model architecture, inference, viewers, agent — is
+Apache 2.0 (see LICENSE). Trained weights/checkpoints and the
+synthetic data generation pipeline (`research/datagen/`) are
+CC BY-NC 4.0 (see LICENSE-WEIGHTS): free for research, commercial use
+needs a separate license.
