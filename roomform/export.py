@@ -142,11 +142,36 @@ def export_glb(
 # ----------------------------------------------------------- fixtures ----
 
 
-def _boxes(matrix: np.ndarray, vox: float, colors: np.ndarray, center):
-    grid = trimesh.voxel.VoxelGrid(matrix)
-    mesh = grid.as_boxes(colors=colors)
-    mesh.apply_scale(vox)
-    mesh.apply_translation([-center[0], -center[1], 0.0])
+def _surface(matrix: np.ndarray, vox: float, colors: np.ndarray, center):
+    """Marching-cubes surface over a voxel mask, vertex-colored from the
+    per-voxel color grid — the editor's asset contract is smooth
+    triangle meshes, not voxel boxes."""
+    from skimage import measure
+
+    padded = np.pad(matrix, 1)
+    verts, faces, _, _ = measure.marching_cubes(
+        padded.astype(np.float32), level=0.5
+    )
+    verts = (verts - 1.0) * vox
+    idx = np.clip(
+        np.floor(verts / vox).astype(int),
+        0,
+        np.asarray(matrix.shape) - 1,
+    )
+    vcol = colors[idx[:, 0], idx[:, 1], idx[:, 2]]
+    # marching cubes can land a vertex on an uncolored neighbor cell —
+    # snap fully transparent lookups to the nearest colored voxel below
+    empty = vcol[:, 3] == 0
+    if empty.any():
+        idx2 = np.clip(idx[empty] - 1, 0, None)
+        vcol[empty] = colors[idx2[:, 0], idx2[:, 1], idx2[:, 2]]
+        vcol[vcol[:, 3] == 0] = MEASURED
+    mesh = trimesh.Trimesh(
+        vertices=verts - [center[0], center[1], 0.0],
+        faces=faces,
+        vertex_colors=vcol,
+        process=False,
+    )
     return mesh
 
 
@@ -175,26 +200,35 @@ def export_fixtures(
     # the editor frames scenes around the origin — center xy, floor at 0
     center = (np.asarray(occ.shape[:2]) * vox / 2.0).tolist()
 
-    # ① input: observed cloud, grayscale from evidence
-    pts = np.argwhere(occ)
-    gray = (features[1][occ] * 255).astype(np.uint8)
-    cloud_colors = np.stack([gray, gray, gray, np.full_like(gray, 255)], 1)
-    cloud = (pts + 0.5) * vox - [center[0], center[1], 0.0]
-    trimesh.PointCloud(cloud, colors=cloud_colors).export(
-        os.path.join(out, "input-cloud.ply")
-    )
+    # ① input: the full-res RGB display cloud when the evidence stage
+    # wrote one; grayscale voxel centers only as a fallback
+    src_cloud = os.path.join(scene_dir, "cloud.ply")
+    if os.path.exists(src_cloud):
+        m = trimesh.load(src_cloud)
+        trimesh.PointCloud(
+            np.asarray(m.vertices) - [center[0], center[1], 0.0],
+            colors=np.asarray(m.visual.vertex_colors),
+        ).export(os.path.join(out, "input-cloud.ply"))
+    else:
+        pts = np.argwhere(occ)
+        gray = (features[1][occ] * 255).astype(np.uint8)
+        cloud_colors = np.stack([gray, gray, gray, np.full_like(gray, 255)], 1)
+        cloud = (pts + 0.5) * vox - [center[0], center[1], 0.0]
+        trimesh.PointCloud(cloud, colors=cloud_colors).export(
+            os.path.join(out, "input-cloud.ply")
+        )
 
     # ② mesh: measured occupancy only
-    _boxes(occ, vox, _color_grid(occ.shape, [(occ, MEASURED)]), center).export(
-        os.path.join(out, "mesh.glb")
-    )
+    _surface(
+        occ, vox, _color_grid(occ.shape, [(occ, MEASURED)]), center
+    ).export(os.path.join(out, "mesh.glb"))
 
     # ③ shell: predicted structure, colored per class
     shell_colors = _color_grid(
         occ.shape,
         [(node[k], CLASS_COLORS[n]) for k, n in enumerate(CLASS_COLORS)],
     )
-    _boxes(anynode, vox, shell_colors, center).export(
+    _surface(anynode, vox, shell_colors, center).export(
         os.path.join(out, "shell.glb")
     )
 
@@ -203,7 +237,7 @@ def export_fixtures(
     editable_colors = _color_grid(
         occ.shape, [(anynode & ~occ, INFERRED), (occ, MEASURED)]
     )
-    _boxes(anynode | occ, vox, editable_colors, center).export(
+    _surface(anynode | occ, vox, editable_colors, center).export(
         os.path.join(out, "editable.glb")
     )
 
@@ -258,8 +292,7 @@ def export_fixtures(
         m[tuple((grid - gmin).T)] = True
         colors = np.zeros((*m.shape, 4), np.uint8)
         colors[m] = MEASURED
-        mesh = trimesh.voxel.VoxelGrid(m).as_boxes(colors=colors)
-        mesh.apply_scale(0.04)
+        mesh = _surface(m, 0.04, colors, (0.0, 0.0))
         mesh.apply_translation(gmin * 0.04 - [center[0], center[1], 0.0])
         path = os.path.join(obj_dir, f"object-{i}.glb")
         mesh.export(path)

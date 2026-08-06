@@ -10,7 +10,7 @@ authors = [
 ]
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-dependencies = ["numpy", "pydantic>=2", "trimesh"]
+dependencies = ["numpy", "pydantic>=2", "trimesh", "scikit-image"]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "pyyaml"]
