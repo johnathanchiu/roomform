@@ -39,7 +39,7 @@ The package lives in `roomform/roomform/` (no `src/` layout).
   fixtures). `eval.py` owns the metrics.
 - `viewer/` (top level, outside the wheel) owns the web viewers and
   their dev servers.
-- `research/` owns training, datagen, and experiments. It NEVER
+- `research/` owns training and experiments. It NEVER
   defines architectures or metrics — it imports them from the package.
   Checkpoints carry their config dict; `tests/test_parity.py` enforces
   that any checkpoint in the documented format loads through
