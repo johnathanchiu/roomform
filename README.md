@@ -167,5 +167,5 @@ This work is generously supported by [Modal](https://modal.com) and
 ## License
 
 - Code: [Apache 2.0](LICENSE)
-- Trained weights and `research/datagen/`: [CC BY-NC 4.0](LICENSE-WEIGHTS)
-  — free for research; commercial use needs a separate license.
+- Trained weights/checkpoints: [CC BY-NC 4.0](LICENSE-WEIGHTS) — free
+  for research; commercial use needs a separate license.
