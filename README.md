@@ -1,4 +1,4 @@
-# roomform
+# Roomform
 
 Parses point cloud indoor scans into structured, editable
 scenes: room boundaries (walls, floors, ceilings — inferred
@@ -160,5 +160,6 @@ This work is generously supported by [Modal](https://modal.com) and
 ## License
 
 - Code: [Apache 2.0](LICENSE)
-- Trained weights/checkpoints: [CC BY-NC 4.0](LICENSE-WEIGHTS) — free
-  for research; commercial use needs a separate license.
+- Trained weights/checkpoints and the synthetic data generation code
+  (`research/datagen/`, when published): [CC BY-NC 4.0](LICENSE-WEIGHTS)
+  — free for research; commercial use needs a separate license.
