@@ -269,38 +269,47 @@ def export_fixtures(
         os.path.join(out, "shell.glb")
     )
 
-    # ④ editable: measured gray + completed amber. Object voxels are
-    # carved OUT — they ship as per-object measured meshes, and any
-    # coincident copy in the background surface would swallow the
-    # editor's raycasts and make objects ungrabbable.
-    objmask = np.zeros(occ.shape, bool)
-    idx = np.argwhere(occ | anynode)
-    world = (idx + 0.5) * vox
-    for o in doc["objects"]:
-        c, s_ = np.asarray(o["center"]), np.asarray(o["size"])
-        ch, sh = math.cos(o["heading"]), math.sin(o["heading"])
-        rel = world - c
-        rot = np.stack(
-            [
-                rel[:, 0] * ch + rel[:, 1] * sh,
-                -rel[:, 0] * sh + rel[:, 1] * ch,
-                rel[:, 2],
-            ],
-            1,
-        )
-        inside = np.all(np.abs(rot) <= s_ / 2 + 0.04, axis=1)
-        objmask[tuple(idx[inside].T)] = True
-    editable_mask = anynode | (occ & ~objmask)
-    editable_colors = _color_grid(
-        occ.shape,
-        [
-            (anynode & ~occ, INFERRED),
-            (occ & ~objmask, MEASURED),
-            (anynode & occ, MEASURED),
-        ],
-    )
-    _surface(editable_mask, vox, editable_colors, center).export(
-        os.path.join(out, "editable.glb")
+    # ④ editable: the real RGB cloud with object points carved out
+    # (they ship as separate draggable clusters — a coincident copy
+    # would swallow the editor's raycasts) plus amber points where the
+    # model inferred unscanned structure. Point clouds render far
+    # better than 8 cm surface reconstructions.
+    def _outside_objects(pts_w: np.ndarray) -> np.ndarray:
+        outside = np.ones(len(pts_w), bool)
+        for o in doc["objects"]:
+            c, s_ = np.asarray(o["center"]), np.asarray(o["size"])
+            ch, sh = math.cos(o["heading"]), math.sin(o["heading"])
+            rel = pts_w - c
+            rot = np.stack(
+                [
+                    rel[:, 0] * ch + rel[:, 1] * sh,
+                    -rel[:, 0] * sh + rel[:, 1] * ch,
+                    rel[:, 2],
+                ],
+                1,
+            )
+            outside &= ~np.all(np.abs(rot) <= s_ / 2 + 0.04, axis=1)
+        return outside
+
+    if os.path.exists(os.path.join(scene_dir, "cloud.ply")):
+        m = trimesh.load(os.path.join(scene_dir, "cloud.ply"))
+        cpts = np.asarray(m.vertices, np.float32)
+        ccol = np.asarray(m.visual.vertex_colors)
+    else:
+        cpts = (np.argwhere(occ) + 0.5) * vox
+        g = (features[1][occ] * 255).astype(np.uint8)
+        ccol = np.stack([g, g, g, np.full_like(g, 255)], 1)
+    keep_out = _outside_objects(cpts)
+    ipts = (np.argwhere(anynode & ~occ) + 0.5) * vox
+    icol = np.tile(np.array(INFERRED, np.uint8), (len(ipts), 1))
+    all_pts = np.concatenate([cpts[keep_out], ipts]) - [
+        center[0],
+        center[1],
+        0.0,
+    ]
+    all_col = np.concatenate([ccol[keep_out], icol])
+    trimesh.PointCloud(all_pts, colors=all_col).export(
+        os.path.join(out, "editable.ply")
     )
 
     # per-object measured meshes: the editor makes an object draggable
@@ -348,18 +357,24 @@ def export_fixtures(
         pts_i = lab_pts[inside]
         if len(pts_i) < 30:
             return None
-        grid = np.floor(pts_i / 0.04).astype(np.int64)
-        gmin = grid.min(0)
-        m = np.zeros(grid.max(0) - gmin + 1, bool)
-        m[tuple((grid - gmin).T)] = True
-        colors = np.zeros((*m.shape, 4), np.uint8)
-        colors[m] = MEASURED
-        mesh = _surface(m, 0.04, colors, (0.0, 0.0))
-        if mesh is None:
-            return None
-        mesh.apply_translation(gmin * 0.04 - [center[0], center[1], 0.0])
+        vi = np.clip(
+            np.floor(pts_i / vox).astype(int),
+            0,
+            np.asarray(occ.shape) - 1,
+        )
+        col = (
+            np.stack(
+                [features[k][vi[:, 0], vi[:, 1], vi[:, 2]] for k in (1, 2, 3)],
+                1,
+            )
+            * 255
+        ).astype(np.uint8)
+        col = np.concatenate([col, np.full((len(col), 1), 255, np.uint8)], 1)
+        cloud = trimesh.PointCloud(
+            pts_i - [center[0], center[1], 0.0], colors=col
+        )
         path = os.path.join(obj_dir, f"object-{i}.glb")
-        mesh.export(path)
+        trimesh.Scene([cloud]).export(path)
         return f"/fixtures/{scene_id}/objects/object-{i}.glb"
 
     # analysis: objects in the editor's y-up frame
@@ -394,7 +409,7 @@ def export_fixtures(
     analysis = {
         "schema": "roomform.splat-analysis.result.v1",
         "scene_id": scene_id,
-        "splat_uri": f"/fixtures/{scene_id}/editable.glb",
+        "splat_uri": f"/fixtures/{scene_id}/editable.ply",
         "detector": "spatiallm/qwen",
         "coordinate_system": "source-splat",
         "objects": objects,
@@ -418,7 +433,7 @@ def export_fixtures(
             "input": f"/fixtures/{scene_id}/input-cloud.ply",
             "mesh": f"/fixtures/{scene_id}/mesh.glb",
             "shell": f"/fixtures/{scene_id}/shell.glb",
-            "editable": f"/fixtures/{scene_id}/editable.glb",
+            "editable": f"/fixtures/{scene_id}/editable.ply",
             "program": f"/fixtures/{scene_id}/scene-program.json",
             "objectsAnalysis": f"/fixtures/{scene_id}/analysis.json",
         },
