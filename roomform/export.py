@@ -145,8 +145,29 @@ def export_glb(
 def _surface(matrix: np.ndarray, vox: float, colors: np.ndarray, center):
     """Marching-cubes surface over a voxel mask, vertex-colored from the
     per-voxel color grid — the editor's asset contract is smooth
-    triangle meshes, not voxel boxes."""
+    triangle meshes, not voxel boxes.
+
+    The mask is display-cleaned first: speck components vanish, one
+    closing pass fills pinholes, and Taubin smoothing planes off the
+    voxel stairsteps. Display only — pipeline artifacts stay raw."""
+    from scipy import ndimage
     from skimage import measure
+
+    raw = matrix
+    labels, n = ndimage.label(matrix)
+    if n > 1:
+        sizes = ndimage.sum_labels(
+            np.ones_like(labels), labels, range(1, n + 1)
+        )
+        keep = np.flatnonzero(sizes >= 12) + 1
+        matrix = np.isin(labels, keep)
+    matrix = ndimage.binary_closing(np.pad(matrix, 2), iterations=1)[
+        2:-2, 2:-2, 2:-2
+    ]
+    if not matrix.any():
+        matrix = raw  # a small object is better chunky than gone
+    if not matrix.any():
+        return None
 
     padded = np.pad(matrix, 1)
     verts, faces, _, _ = measure.marching_cubes(
@@ -172,6 +193,7 @@ def _surface(matrix: np.ndarray, vox: float, colors: np.ndarray, center):
         vertex_colors=vcol,
         process=False,
     )
+    trimesh.smoothing.filter_taubin(mesh, lamb=0.5, nu=-0.53, iterations=10)
     return mesh
 
 
@@ -293,6 +315,8 @@ def export_fixtures(
         colors = np.zeros((*m.shape, 4), np.uint8)
         colors[m] = MEASURED
         mesh = _surface(m, 0.04, colors, (0.0, 0.0))
+        if mesh is None:
+            return None
         mesh.apply_translation(gmin * 0.04 - [center[0], center[1], 0.0])
         path = os.path.join(obj_dir, f"object-{i}.glb")
         mesh.export(path)
