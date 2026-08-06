@@ -94,6 +94,9 @@ def main() -> None:
     ap.add_argument("out_dir", nargs="?", default="")
     ap.add_argument("--ckpt", default="")
     ap.add_argument("--proposals", default="")
+    ap.add_argument(
+        "--lifter", choices=("pointlabel", "spatiallm"), default="pointlabel"
+    )
     ap.add_argument("--vox", type=float, default=0.08)
     ap.add_argument("--sequential", action="store_true")
     args = ap.parse_args()
@@ -102,7 +105,11 @@ def main() -> None:
     os.makedirs(out_dir, exist_ok=True)
     emit("start", scan=os.path.basename(args.scan))
 
-    proposals_path = args.proposals or os.path.join(out_dir, "proposals.txt")
+    if args.lifter == "pointlabel":
+        default_out = os.path.join(out_dir, "labels.npz")
+    else:
+        default_out = os.path.join(out_dir, "proposals.txt")
+    proposals_path = args.proposals or default_out
     lifting_handle = None
     app_ctx = None
     if not args.proposals:
@@ -111,8 +118,13 @@ def main() -> None:
         import modal
 
         from roomform.inference.modal_adapter import StageApp
-        from roomform.pipe.lifting.modal_app import app as lifting_app
-        from roomform.pipe.lifting.modal_app import lift
+
+        if args.lifter == "pointlabel":
+            from roomform.pipe.lifting.pointlabel import app as lifting_app
+            from roomform.pipe.lifting.pointlabel import segment as lift
+        else:
+            from roomform.pipe.lifting.modal_app import app as lifting_app
+            from roomform.pipe.lifting.modal_app import lift
 
         data = StageApp.read_input(args.scan)
         app_ctx = modal.enable_output(), lifting_app.run()
@@ -136,7 +148,12 @@ def main() -> None:
             app_ctx[1].__exit__(None, None, None)
             app_ctx[0].__exit__(None, None, None)
 
-    objects = lift_from_proposals(proposals_path, evidence.origin)
+    if proposals_path.endswith(".npz"):
+        from roomform.pipe.lifting.pointlabel import lift_from_labels
+
+        objects = lift_from_labels(proposals_path, evidence.origin)
+    else:
+        objects = lift_from_proposals(proposals_path, evidence.origin)
     doc = fuse(
         shell,
         objects,

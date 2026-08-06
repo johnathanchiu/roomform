@@ -65,6 +65,7 @@ image = torch_image(
     "spconv-cu120",
     "plyfile>=1.0",
     "huggingface_hub>=0.25",
+    "scipy>=1.11",
     env={"PYTHONPATH": "/opt/Pointcept"},
     run_commands=(
         (
@@ -151,24 +152,40 @@ def segment(point_cloud_bytes: bytes) -> bytes:
 
     vertex = PlyData.read(io.BytesIO(point_cloud_bytes))["vertex"]
     names = set(vertex.data.dtype.names)
-    if not {"nx", "red"} <= names:
-        # ponytail: estimate normals / gray colors if a source without
-        # them ever matters; every current scan ships both.
-        raise ValueError("ply must carry normals (nx..) and colors")
+    if "red" not in names:
+        raise ValueError("ply must carry colors (red/green/blue)")
     pts = np.stack([vertex["x"], vertex["y"], vertex["z"]], 1)
     pts = pts.astype(np.float32)
-    normal = np.stack([vertex["nx"], vertex["ny"], vertex["nz"]], 1)
     color = np.stack([vertex["red"], vertex["green"], vertex["blue"]], 1)
+    if "nx" in names:
+        normal = np.stack([vertex["nx"], vertex["ny"], vertex["nz"]], 1)
+    else:
+        # phone/RGB-D plys ship without normals — estimate them here so
+        # the pipeline can stream the raw scan without a local pass
+        from scipy.spatial import cKDTree
+
+        cells = np.floor(pts / 0.02).astype(np.int64)
+        _, keep0 = np.unique(cells, axis=0, return_index=True)
+        pts, color = pts[keep0], color[keep0]
+        _, nbr = cKDTree(pts).query(pts, k=16, workers=-1)
+        nb = pts[nbr] - pts[nbr].mean(1, keepdims=True)
+        cov = np.einsum("nki,nkj->nij", nb, nb) / 16
+        normal = np.linalg.eigh(cov)[1][:, :, 0].astype(np.float32)
 
     # Training-time transforms: CenterShift(apply_z=True) + one point
     # per 2 cm voxel (GridSample test mode) + NormalizeColor.
     lo, hi = pts.min(0), pts.max(0)
     coord = pts - [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]]
-    grid = np.floor((coord - coord.min(0)) / GRID).astype(np.int64)
-    key = grid[:, 0]
-    for axis in (1, 2):
-        key = key * (grid[:, axis].max() + 1) + grid[:, axis]
-    _, keep = np.unique(key, return_index=True)
+    # coarsen until the cloud fits GPU attention (upcast, no flash);
+    # 450k pts is comfortable on an L4
+    for grid_m in (GRID, 0.03, 0.04, 0.06):
+        grid = np.floor((coord - coord.min(0)) / grid_m).astype(np.int64)
+        key = grid[:, 0]
+        for axis in (1, 2):
+            key = key * (grid[:, axis].max() + 1) + grid[:, axis]
+        _, keep = np.unique(key, return_index=True)
+        if len(keep) <= 450_000:
+            break
 
     feat = np.concatenate(
         [color[keep] / 127.5 - 1, normal[keep]], 1, dtype=np.float32
