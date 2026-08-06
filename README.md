@@ -44,6 +44,15 @@ run loads directly. Without a checkpoint the pipeline falls back to
 random weights and marks the shell `RANDOM-INIT` (excluded from
 exports).
 
+## Quickstart without a scan
+
+A pre-baked result ships in [samples/](samples/README.md):
+
+    uv run python viewer/serve.py --artifacts samples   # :8790
+
+`samples/README.md` also lists public-domain scans to download for
+full pipeline runs.
+
 ## Run the pipeline
 
     uv run python -m roomform.pipe.e2e SCAN.ply

@@ -1,0 +1,609 @@
+{
+ "version": "0.1.0",
+ "source_scan": "redwood-apartment.ply",
+ "frame_shift": [
+  -4.387899875640869,
+  -4.849699974060059,
+  -0.03400185704231262
+ ],
+ "shell": {
+  "npz_path": "artifacts/redwood-apartment/patchgraph.npz",
+  "vox_m": 0.08,
+  "origin": [
+   -4.387899875640869,
+   -4.849699974060059,
+   -0.03400185704231262
+  ],
+  "shape": [
+   112,
+   128,
+   40
+  ],
+  "node_threshold": 0.5,
+  "edge_threshold": 0.5,
+  "model_id": "patch-graph-400-offset-isolated-r1.pt"
+ },
+ "objects": [
+  {
+   "cls": "table",
+   "center": [
+    1.8072498798370362,
+    0.7007800102233883,
+    0.38754999041557314
+   ],
+   "size": [
+    0.5625,
+    1.296875,
+    0.765625
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.075
+   }
+  },
+  {
+   "cls": "shelf",
+   "center": [
+    0.4072498798370363,
+    0.8757800102233881,
+    0.7375499904155731
+   ],
+   "size": [
+    0.390625,
+    0.78125,
+    1.4375
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 127,
+    "floor_support_m": -0.061
+   }
+  },
+  {
+   "cls": "stool",
+   "center": [
+    1.882249879837036,
+    1.1507800102233885,
+    0.26254999041557314
+   ],
+   "size": [
+    0.359375,
+    0.546875,
+    0.5
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.067
+   }
+  },
+  {
+   "cls": "tv_monitor",
+   "center": [
+    3.882249879837036,
+    2.2757800102233885,
+    1.062549990415573
+   ],
+   "size": [
+    0.046875,
+    0.75,
+    0.53125
+   ],
+   "heading": -0.1865325000000002,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": 0.717
+   }
+  },
+  {
+   "cls": "chair",
+   "center": [
+    2.932249879837036,
+    2.2757800102233885,
+    0.4625499904155731
+   ],
+   "size": [
+    0.546875,
+    0.484375,
+    0.90625
+   ],
+   "heading": -2.8372574999999998,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.071
+   }
+  },
+  {
+   "cls": "bed",
+   "center": [
+    6.582249879837036,
+    2.5257800102233885,
+    0.3125499904155731
+   ],
+   "size": [
+    2.203125,
+    2.078125,
+    0.625
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 95,
+    "floor_support_m": -0.08
+   }
+  },
+  {
+   "cls": "table",
+   "center": [
+    3.807249879837036,
+    2.5257800102233885,
+    0.38754999041557314
+   ],
+   "size": [
+    0.71875,
+    1.40625,
+    0.75
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.067
+   }
+  },
+  {
+   "cls": "sofa",
+   "center": [
+    0.857249879837036,
+    2.9007800102233885,
+    0.41254999041557316
+   ],
+   "size": [
+    1.0,
+    2.25,
+    0.796875
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 92,
+    "floor_support_m": -0.066
+   }
+  },
+  {
+   "cls": "chair",
+   "center": [
+    4.7322498798370365,
+    2.9007800102233885,
+    0.5875499904155732
+   ],
+   "size": [
+    0.546875,
+    0.484375,
+    1.15625
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.071
+   }
+  },
+  {
+   "cls": "chair",
+   "center": [
+    2.507249879837036,
+    4.6507800102233885,
+    0.38754999041557314
+   ],
+   "size": [
+    0.484375,
+    0.453125,
+    0.75
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.067
+   }
+  },
+  {
+   "cls": "chair",
+   "center": [
+    1.757249879837036,
+    4.750780010223388,
+    0.38754999041557314
+   ],
+   "size": [
+    0.484375,
+    0.453125,
+    0.75
+   ],
+   "heading": -2.1205800000000004,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.067
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    6.407249879837036,
+    4.975780010223389,
+    0.3125499904155731
+   ],
+   "size": [
+    0.390625,
+    0.390625,
+    0.609375
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.072
+   }
+  },
+  {
+   "cls": "table",
+   "center": [
+    2.257249879837036,
+    5.350780010223389,
+    0.38754999041557314
+   ],
+   "size": [
+    0.765625,
+    1.421875,
+    0.75
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.067
+   }
+  },
+  {
+   "cls": "stool",
+   "center": [
+    2.457249879837036,
+    6.0257800102233885,
+    0.23754999041557312
+   ],
+   "size": [
+    0.34375,
+    1.15625,
+    0.453125
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.069
+   }
+  },
+  {
+   "cls": "stool",
+   "center": [
+    5.9822498798370365,
+    6.9007800102233885,
+    0.2125499904155731
+   ],
+   "size": [
+    0.28125,
+    0.28125,
+    0.421875
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.078
+   }
+  },
+  {
+   "cls": "sink",
+   "center": [
+    2.382249879837036,
+    7.0257800102233885,
+    0.8375499904155732
+   ],
+   "size": [
+    0.46875,
+    0.5625,
+    0.234375
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": 0.64
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    2.757249879837036,
+    7.0257800102233885,
+    0.4625499904155731
+   ],
+   "size": [
+    0.640625,
+    1.796875,
+    0.9375
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.086
+   }
+  },
+  {
+   "cls": "sink",
+   "center": [
+    2.832249879837036,
+    7.075780010223388,
+    0.8375499904155732
+   ],
+   "size": [
+    0.46875,
+    0.203125,
+    0.234375
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": 0.64
+   }
+  },
+  {
+   "cls": "stool",
+   "center": [
+    7.207249879837036,
+    7.950780010223388,
+    0.2125499904155731
+   ],
+   "size": [
+    0.3125,
+    0.3125,
+    0.421875
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.078
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    1.607249879837036,
+    7.975780010223389,
+    0.4875499904155731
+   ],
+   "size": [
+    0.640625,
+    1.5625,
+    0.953125
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.069
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    6.157249879837036,
+    8.350780010223389,
+    0.41254999041557316
+   ],
+   "size": [
+    0.53125,
+    1.46875,
+    0.78125
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 36,
+    "floor_support_m": -0.058
+   }
+  },
+  {
+   "cls": "toilet",
+   "center": [
+    7.282249879837036,
+    8.050780010223388,
+    0.41254999041557316
+   ],
+   "size": [
+    0.6875,
+    0.53125,
+    0.8125
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.074
+   }
+  },
+  {
+   "cls": "stove",
+   "center": [
+    1.757249879837036,
+    8.350780010223389,
+    0.9125499904155732
+   ],
+   "size": [
+    0.5625,
+    0.703125,
+    0.015625
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": 0.825
+   }
+  },
+  {
+   "cls": "oven",
+   "center": [
+    1.757249879837036,
+    8.350780010223389,
+    0.38754999041557314
+   ],
+   "size": [
+    0.640625,
+    0.703125,
+    0.75
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": -0.067
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    1.632249879837036,
+    8.375780010223389,
+    2.037549990415573
+   ],
+   "size": [
+    0.328125,
+    0.75,
+    0.75
+   ],
+   "heading": -0.15708000000000055,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 0,
+    "floor_support_m": 1.583
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    3.807249879837036,
+    8.925780010223388,
+    1.2375499904155731
+   ],
+   "size": [
+    0.640625,
+    0.640625,
+    2.453125
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 93,
+    "floor_support_m": -0.069
+   }
+  },
+  {
+   "cls": "refrigerator",
+   "center": [
+    3.082249879837036,
+    9.025780010223388,
+    0.8375499904155732
+   ],
+   "size": [
+    0.75,
+    0.71875,
+    1.671875
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 10,
+    "floor_support_m": -0.078
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    2.382249879837036,
+    9.200780010223388,
+    0.4875499904155731
+   ],
+   "size": [
+    0.640625,
+    0.484375,
+    0.953125
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 21,
+    "floor_support_m": -0.069
+   }
+  },
+  {
+   "cls": "cabinet",
+   "center": [
+    2.382249879837036,
+    9.400780010223388,
+    1.9375499904155733
+   ],
+   "size": [
+    0.328125,
+    0.75,
+    1.0625
+   ],
+   "heading": -1.7278799999999999,
+   "source": "spatiallm",
+   "mesh_path": null,
+   "qa": {
+    "wall_leak_pts": 40,
+    "floor_support_m": 1.326
+   }
+  }
+ ],
+ "floor_z": 0.08
+}
