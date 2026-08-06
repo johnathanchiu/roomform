@@ -97,6 +97,7 @@ def main() -> None:
     ap.add_argument(
         "--lifter", choices=("pointlabel", "spatiallm"), default="pointlabel"
     )
+    ap.add_argument("--up", choices=("auto", "x", "y", "z"), default="auto")
     ap.add_argument("--vox", type=float, default=0.08)
     ap.add_argument("--sequential", action="store_true")
     args = ap.parse_args()
@@ -104,6 +105,13 @@ def main() -> None:
     out_dir = args.out_dir or os.path.join("artifacts", scan_stem)
     os.makedirs(out_dir, exist_ok=True)
     emit("start", scan=os.path.basename(args.scan))
+
+    from roomform.pipe.evidence.orient import ensure_z_up
+
+    scan_path = ensure_z_up(args.scan, out_dir, args.up)
+    if scan_path != args.scan:
+        emit("orient.rotated", scan=os.path.basename(scan_path))
+    args.scan = scan_path
 
     if args.lifter == "pointlabel":
         default_out = os.path.join(out_dir, "labels.npz")
