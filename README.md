@@ -4,21 +4,14 @@ Parses point cloud indoor scans into structured, editable
 scenes: room boundaries (walls, floors, ceilings — inferred
 through occlusion) + objects out.
 
-Pipeline spine ([data contracts](docs/data-contracts.md)):
+## Docs
 
-    ScanInput -> EvidenceGrid -> PatchGraph -> SceneDocument
-
-Boundaries come from a patch-graph ConvFormer
-([how the model works](roomform/model/README.md)) — observable
-evidence in, surface nodes + connectivity out; no semantic inputs, no
-deterministic compiler. Objects come from
-[SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
-box lifting, with optional
-[SAM 3D](https://ai.meta.com/sam3d/) mesh reconstruction.
-
-Boundary F1 0.98 (0.94 in occluded regions) on held-out synthetic
-rooms; on real scans roughly a third of the predicted boundary is
-structure the scanner never saw. ~10 s per scene on a laptop CPU.
+- [Data contracts](docs/data-contracts.md) — the pipeline spine:
+  `ScanInput -> EvidenceGrid -> PatchGraph -> SceneDocument`
+- [How the model works](roomform/model/README.md) — the patch-graph
+  ConvFormer: representation, architecture, measured results
+- [Research](research/README.md) — training, experiments, and the
+  parity rules
 
 ## Setup
 
@@ -124,7 +117,7 @@ written in the documented format must round-trip through
     │   ├── export.py        scene.glb + demo-editor fixture exports
     │   └── eval.py          shell/connectivity F1 metrics
     ├── viewer/              web viewers + dev servers (not in the wheel)
-    ├── research/            training loop, experiments, datagen (never
+    ├── research/            training loop + experiments (never
     │                        defines architectures or metrics — parity
     │                        with the package is enforced by tests)
     ├── docs/                data contracts + migration log
