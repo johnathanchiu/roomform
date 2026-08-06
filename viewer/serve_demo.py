@@ -20,8 +20,8 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 # injected here so the upstream build stays untouched).
 _INJECT = (
     "<style>"
-    "[data-panel-group]>[data-panel]:last-child{display:none!important}"
-    "[data-panel-group]>[data-panel-resize-handle]:last-of-type"
+    "[data-group]>[data-panel]:last-child{display:none!important}"
+    '[data-group]>[data-slot="resizable-handle"]:last-of-type'
     "{display:none!important}"
     "</style>"
 )
