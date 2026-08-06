@@ -144,7 +144,7 @@ def main() -> None:
         evidence.origin,
         os.path.join(out_dir, "scene.json"),
     )
-    from roomform.viz.export import export_glb
+    from roomform.export import export_glb
 
     export_glb(
         doc,

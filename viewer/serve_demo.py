@@ -1,6 +1,6 @@
 """Serve the demo editor's prebuilt dist with sane dev caching.
 
-  uv run python -m roomform.viz.serve_demo DIST_DIR [--port 8792]
+  uv run python viewer/serve_demo.py DIST_DIR [--port 8792]
 
 Plain ``python -m http.server`` sends no cache headers, so browsers
 heuristically cache fixtures/index.json and freshly exported scenes
