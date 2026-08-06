@@ -20,8 +20,6 @@
     .obj:hover { background:#2c2f36; }
     .obj.selected { background:#3a4a68; color:#fff; }
     .obj .flag { color:#e06666; }
-    .obj .del { color:#666; padding-right:2px; }
-    .obj .del:hover { color:#e06666; }
     .title { padding:4px 4px 10px; border-bottom:1px solid #3a3d44; }
     .title strong { display:block; color:#fff; font-size:14px; }
     .title span { color:#9aa; }
@@ -33,8 +31,7 @@
 <div id="scene"></div>
 <div id="panel">
   <div class="title"><strong>roomform debug</strong><span id="subtitle">pick a scene</span></div>
-  <div id="hint">inspect only — edits are local and vanish on reload<br>
-    drag/QE/WASD move &middot; del hides &middot; dbl-click row renames &middot; esc deselect</div>
+  <div id="hint">read-only inspection &middot; click box or row to highlight &middot; esc clears</div>
   <h2>scenes</h2><div id="scenes"></div>
   <h2>layers</h2><div id="groups"></div>
   <h2>objects</h2><div id="objects"></div>
@@ -71,13 +68,6 @@ let boxGroup = null;     // editable object boxes
 let boxes = [];          // one Group per object
 let selected = -1;
 
-function syncSelected() {
-  if (selected < 0) return;
-  const g = boxes[selected], o = doc.objects[selected];
-  o.center = [g.position.x, g.position.y, g.position.z];
-  o.heading = g.rotation.z;
-}
-
 function setHighlight(i, on) {
   if (i < 0) return;
   const line = boxes[i].userData.line;
@@ -113,115 +103,6 @@ function makeBox(o, i) {
   return g;
 }
 
-// ---- gravity-aligned editing -----------------------------------------
-// Drag slides the object in the floor plane (z locked); shift-drag maps
-// vertical pointer motion to z only. Rotation is always around gravity.
-const ray = new THREE.Raycaster();
-const drag = { active: false, vertical: false, planeZ: 0, offset: new THREE.Vector2(), moved: false };
-
-function pointerRay(e) {
-  ray.setFromCamera(new THREE.Vector2(
-    (e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), camera);
-  return ray;
-}
-
-function floorHit(e, z) {
-  const r = pointerRay(e).ray;
-  const t = (z - r.origin.z) / r.direction.z;
-  return t > 0 ? r.origin.clone().addScaledVector(r.direction, t) : null;
-}
-
-renderer.domElement.addEventListener('pointerdown', e => {
-  if (!boxGroup || e.button !== 0) return;
-  const hits = pointerRay(e).intersectObjects(boxGroup.children, true)
-    .filter(h => h.object.userData.index !== undefined);
-  if (!hits.length) return;
-  const i = hits[0].object.userData.index;
-  select(i);
-  const g = boxes[i];
-  drag.active = true;
-  drag.moved = false;
-  drag.vertical = e.shiftKey;
-  drag.planeZ = g.position.z;
-  const hit = floorHit(e, drag.planeZ);
-  if (hit) drag.offset.set(g.position.x - hit.x, g.position.y - hit.y);
-  controls.enabled = false;
-  renderer.domElement.setPointerCapture(e.pointerId);
-});
-
-renderer.domElement.addEventListener('pointermove', e => {
-  if (!drag.active || selected < 0) return;
-  const g = boxes[selected];
-  if (drag.vertical) {
-    const dist = camera.position.distanceTo(g.position);
-    g.position.z -= e.movementY * 0.0012 * dist;
-  } else {
-    const hit = floorHit(e, drag.planeZ);
-    if (hit) { g.position.x = hit.x + drag.offset.x; g.position.y = hit.y + drag.offset.y; }
-  }
-  drag.moved = true;
-  syncSelected();
-});
-
-addEventListener('pointerup', () => {
-  drag.active = false;
-  controls.enabled = true;
-});
-
-function renderObjectRows() {
-  const odiv = document.getElementById('objects');
-  odiv.innerHTML = '';
-  doc.objects.forEach((o, i) => {
-    const leak = (o.qa && o.qa.wall_leak_pts) || 0;
-    const row = document.createElement('div');
-    row.className = 'obj';
-    row.innerHTML = `<span class="del" title="delete">&times;</span> ${o.cls} <span class="${leak > 50 ? 'flag' : ''}">${leak > 50 ? `leak:${leak}` : ''}</span>`;
-    row.onclick = () => select(i);
-    row.ondblclick = () => {
-      const cls = prompt('class', o.cls);
-      if (cls) { o.cls = cls; renderObjectRows(); select(i); }
-    };
-    row.querySelector('.del').onclick = e => {
-      e.stopPropagation(); select(i); deleteSelected();
-    };
-    odiv.appendChild(row);
-  });
-}
-
-function deleteSelected() {
-  if (selected < 0) return;
-  const i = selected;
-  select(-1);
-  doc.objects.splice(i, 1);
-  const g = boxes.splice(i, 1)[0];
-  boxGroup.remove(g);
-  boxes.forEach((b, j) => b.traverse(o => {
-    if (o.userData.index !== undefined) o.userData.index = j;
-  }));
-  renderObjectRows();
-}
-
-addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Escape') { select(-1); return; }
-  if (selected < 0) return;
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    e.preventDefault(); deleteSelected(); return;
-  }
-  const g = boxes[selected];
-  const step = e.shiftKey ? 0.32 : 0.08;
-  const k = e.key.toLowerCase();
-  if (k === 'q') g.rotation.z += Math.PI / 12;
-  else if (k === 'e') g.rotation.z -= Math.PI / 12;
-  else if (k === 'w') g.position.y += step;
-  else if (k === 's') g.position.y -= step;
-  else if (k === 'a') g.position.x -= step;
-  else if (k === 'd') g.position.x += step;
-  else return;
-  e.preventDefault();
-  syncSelected();
-});
-// ----------------------------------------------------------------------
 
 async function loadScene(name) {
   document.querySelectorAll('.scene-link').forEach(el =>

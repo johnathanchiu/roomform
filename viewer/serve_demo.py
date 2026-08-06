@@ -15,7 +15,6 @@ import functools
 import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-
 # The prebuilt editor is served as-is except for one cosmetic override:
 # the right-side inspector panel is hidden (ruling: viewport-first UX;
 # injected here so the upstream build stays untouched).
