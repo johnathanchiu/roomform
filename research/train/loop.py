@@ -30,9 +30,7 @@ def _log(path: str, rec: dict) -> None:
     print(json.dumps(rec), flush=True)
 
 
-def save_checkpoint(
-    out_dir: str, model, opt, epoch: int, cfg: TrainConfig
-) -> str:
+def save_checkpoint(out_dir: str, model, opt, epoch: int, cfg: TrainConfig) -> str:
     path = os.path.join(out_dir, "checkpoint.pt")
     tmp = path + ".tmp"
     torch.save(
