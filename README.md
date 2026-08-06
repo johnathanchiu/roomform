@@ -4,6 +4,8 @@ Parses point cloud indoor scans into structured, editable
 scenes: room boundaries (walls, floors, ceilings — inferred
 through occlusion) + objects out.
 
+![roomform boundary prediction on a real apartment scan](docs/media/pipeline.gif)
+
 ## Docs
 
 - [Data contracts](docs/data-contracts.md) — the pipeline spine:
@@ -114,6 +116,12 @@ editor build's fixtures directory.
 Standalone GLB export: `uv run python -m roomform.export glb
 artifacts/<scene>/scene.json out.glb --evidence
 artifacts/<scene>/evidence.npz`.
+
+## More demos
+
+| objects | training |
+|---|---|
+| ![object detection](docs/media/objects.gif) | ![training progression](docs/media/training.gif) |
 
 ## Tests and lint
 

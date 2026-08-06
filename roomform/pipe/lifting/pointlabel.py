@@ -235,17 +235,28 @@ def _components(pts: np.ndarray):
             yield pts[mask]
 
 
-def _box(cls: str, pts: np.ndarray, shift) -> SceneObject:
-    """Oriented box: footprint-PCA yaw, extents from rotated bounds."""
+MAX_OBJECT_XY_M = 4.0  # larger than any furniture -> label chain, not object
+MAX_OBJECT_Z_M = 3.2
+
+
+def _box(cls: str, pts: np.ndarray, shift) -> SceneObject | None:
+    """Oriented box: footprint-PCA yaw, extents from robust (1-99th
+    percentile) rotated bounds — min/max lets a handful of stray
+    mislabeled points stretch a cabinet across the room. Clusters at
+    architectural scale are rejected outright."""
     xy = pts[:, :2]
     mean = xy.mean(0)
     centered = xy - mean
     axis = np.linalg.eigh(np.cov(centered.T))[1][:, -1]
     perp = np.array([-axis[1], axis[0]])
     u, t = centered @ axis, centered @ perp
-    center_xy = mean + axis * (u.min() + u.max()) / 2
-    center_xy += perp * (t.min() + t.max()) / 2
-    z0, z1 = pts[:, 2].min(), pts[:, 2].max()
+    u0, u1 = np.percentile(u, [1, 99])
+    t0, t1 = np.percentile(t, [1, 99])
+    z0, z1 = np.percentile(pts[:, 2], [1, 99])
+    if max(u1 - u0, t1 - t0) > MAX_OBJECT_XY_M or (z1 - z0) > MAX_OBJECT_Z_M:
+        return None
+    center_xy = mean + axis * (u0 + u1) / 2
+    center_xy += perp * (t0 + t1) / 2
     return SceneObject(
         cls=cls,
         center=(
@@ -254,8 +265,8 @@ def _box(cls: str, pts: np.ndarray, shift) -> SceneObject:
             float((z0 + z1) / 2 - shift[2]),
         ),
         size=(
-            max(float(np.ptp(u)), GRID),
-            max(float(np.ptp(t)), GRID),
+            max(float(u1 - u0), GRID),
+            max(float(t1 - t0), GRID),
             max(float(z1 - z0), GRID),
         ),
         heading=float(np.arctan2(axis[1], axis[0])),
@@ -276,7 +287,11 @@ def lift_from_labels(
         pts = data["pts"][data["label"] == cls_id]
         if len(pts) < MIN_CLUSTER_PTS:
             continue
-        out.extend(_box(cls, c, frame_shift) for c in _components(pts))
+        out.extend(
+            b
+            for c in _components(pts)
+            if (b := _box(cls, c, frame_shift)) is not None
+        )
     return out
 
 
