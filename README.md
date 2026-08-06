@@ -143,10 +143,6 @@ If you use roomform in your research, please cite:
 }
 ```
 
-This work is generously supported by [Modal](https://modal.com) and
-[Akshat Bubna](https://github.com/aksh-at)
-([@akshat_b](https://x.com/akshat_b)).
-
 Object lifting uses [SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
 (Manycore Research); object mesh reconstruction uses
 [SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via
@@ -157,6 +153,16 @@ Benchmark scenes in the docs come from
 [SceneNN](https://hkust-vgd.github.io/scenenn/),
 [CV4AEC](https://cv4aec.github.io/), and
 [HouseLayout3D](https://houselayout3d.github.io/).
+
+## Supported by
+
+<p>
+  <a href="https://modal.com"><img src="https://avatars.githubusercontent.com/u/88658467?v=4" height="56" alt="Modal"></a>
+</p>
+
+This work is generously supported by [Modal](https://modal.com) and
+[Akshat Bubna](https://github.com/aksh-at)
+([@akshat_b](https://x.com/akshat_b)).
 
 ## License
 
