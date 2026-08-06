@@ -124,6 +124,7 @@ async function loadScene(name) {
       // object boxes are drawn live from scene.json — hide the baked ones
       if ((o.name || '').startsWith('objects')) baked.push(o);
     }
+    if (o.isMesh) o.material.side = 2; // sheets visible from both sides
   });
   baked.forEach(o => o.removeFromParent());
   scene3.add(current);
@@ -161,7 +162,7 @@ async function loadScene(name) {
   camera.position.set(c.x + 9, c.y - 9, c.z + 7);
 
   const groups = [];
-  current.traverse(o => { if (o.isPoints) groups.push(o); });
+  current.traverse(o => { if (o.isPoints || o.isMesh) groups.push(o); });
   const gdiv = document.getElementById('groups');
   gdiv.innerHTML = '';
 

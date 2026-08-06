@@ -82,6 +82,7 @@ def export_glb(
     evidence_npz: str | None = None,
     max_points: int = 300_000,
     include_shell: bool | None = None,
+    include_planar: bool = False,
 ) -> str:
     """include_shell=None auto-skips untrained shells (a random-init
     net marks ~half of ALL cells -> a solid glowing cube that buries
@@ -115,6 +116,26 @@ def export_glb(
             trimesh.PointCloud(pts, colors=color),
             node_name=f"shell-{name}",
         )
+
+    if include_planar:
+        # experimental: fitted-plane boundary mesh (roomform.planes) —
+        # off by default until gap post-processing lands; gaps read as
+        # holes in a solid surface far more than in a point cloud
+        from roomform.planes import planar_shell
+
+        planar = planar_shell(
+            d["node_probs"].astype(np.float32),
+            vox,
+            offsets=d["offsets"].astype(np.float32)
+            if "offsets" in d.files
+            else None,
+            openings=d["openings"].astype(np.float32)
+            if "openings" in d.files
+            else None,
+            node_threshold=doc.shell.node_threshold,
+        )
+        if planar is not None:
+            scene.add_geometry(planar, node_name="boundary-mesh")
 
     if "openings" in d.files:
         op = d["openings"]
