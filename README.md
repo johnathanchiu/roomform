@@ -80,25 +80,27 @@ Object lifting backends (`--lifter`), with upstream licenses:
 
 ## View and edit results
 
+Two surfaces, two jobs:
+
+**Debug viewer** — inspect what the pipeline produced:
+
     uv run python viewer/serve.py          # http://127.0.0.1:8790
 
-Single-file three.js scene editor over `artifacts/`: layer toggles
-(evidence / shell classes / boxes / meshes), gravity-aligned object
-editing — drag slides on the floor plane, shift-drag raises, Q/E
-rotate, WASD nudge — and Save writes `scene.json` back.
+Single-file three.js viewer over `artifacts/`: RGB cloud, boundary
+class layers, voxel evidence, detection boxes — plus curation for QA
+(drag on the floor plane, shift-drag raises, Q/E rotate, WASD nudge,
+delete/rename) with Save writing `scene.json` back.
 
-`scene.glb` is also self-contained: drop it into any glTF viewer.
-
-### Demo editor bridge
-
-Scenes export into the product editor's fixture format:
+**Production editor** — the scene-editing product UX. Scenes export
+into its fixture format and appear at runtime, no editor changes:
 
     uv run python -m roomform.export fixtures artifacts/<scene>
     uv run python viewer/serve_demo.py PATH/TO/editor/dist   # :8792
 
-The editor discovers exported scenes from `fixtures/index.json` at
-runtime — no editor changes. `--fixtures DIR` overrides the fixtures
-directory (the default currently points at a local editor build).
+`--fixtures DIR` overrides the fixtures directory (the default
+currently points at a local editor build).
+
+`scene.glb` is also self-contained: drop it into any glTF viewer.
 
 Standalone GLB export: `uv run python -m roomform.export glb
 artifacts/<scene>/scene.json out.glb --evidence
