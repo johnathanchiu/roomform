@@ -116,6 +116,21 @@ def export_glb(
             node_name=f"shell-{name}",
         )
 
+    if "openings" in d.files:
+        op = d["openings"]
+        for k, (name, color, thr) in enumerate(
+            (
+                ("doors", [240, 200, 70, 255], 0.69),
+                ("windows", [180, 110, 255, 255], 0.70),
+            )
+        ):
+            pts = np.argwhere(op[k] > thr) * vox
+            if len(pts):
+                scene.add_geometry(
+                    trimesh.PointCloud(pts, colors=color),
+                    node_name=f"openings-{name}",
+                )
+
     ok, flagged = [], []
     for obj in doc.objects:
         frame = _box_outline(obj.center, obj.size, obj.heading)

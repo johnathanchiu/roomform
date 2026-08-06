@@ -39,7 +39,7 @@ def emit(stage: str, **fields) -> None:
 
 
 DEFAULT_CKPT = os.path.join(
-    "checkpoints", "patch-graph-400-offset-isolated-r1.pt"
+    "checkpoints", "patch-graph-joint-rgb-55m-offset-head-r2.pt"
 )
 
 

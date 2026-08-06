@@ -36,7 +36,7 @@ Credentials, only for the stages that use them:
 ## Checkpoint
 
 Trained weights are not in git. Drop a checkpoint at
-`checkpoints/patch-graph-400-offset-isolated-r1.pt` and the pipeline
+`checkpoints/patch-graph-joint-rgb-55m-offset-head-r2.pt` and the pipeline
 picks it up automatically (`--ckpt` overrides the path). Checkpoints
 are `{"model": state_dict, "config": {...}}`; the config dict is what
 `roomform.model.config.ModelConfig` reads, so any compatible training

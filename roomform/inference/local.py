@@ -27,18 +27,34 @@ def load_checkpoint(path: str, device: str = "cpu"):
 
 
 def build_input(evidence: EvidenceGrid, cfg: ModelConfig) -> np.ndarray:
-    """Slice the stored observable channels to what the checkpoint was
-    trained on: first 6 (occ, gray, |nrm| xyz, density), +3 local
-    offsets for in_ch=9, +1 zero visibility channel if the model
-    expects one (archived scans carry no scanner origins)."""
+    """Adapt the stored observable channels to the checkpoint.
+
+    Evidence stores the RGB superset (occ, r, g, b, |nrm| xyz,
+    density, offsets = 11ch; older grids may hold the 9ch grayscale
+    layout). Grayscale checkpoints get BT.709 luma; a zero visibility
+    channel is appended when the model expects one."""
     d = np.load(evidence.npz_path)
     features = d["features"].astype(np.float32)
-    need = cfg.in_ch - (1 if cfg.opening_visibility else 0)
-    if features.shape[0] < need:
-        raise ValueError(
-            f"evidence has {features.shape[0]} channels, model needs {need}"
+    stored_rgb = features.shape[0] == 11
+    if cfg.color_mode == "rgb":
+        if not stored_rgb:
+            raise ValueError(
+                "rgb checkpoint needs rgb evidence — rebuild evidence.npz"
+            )
+        x = features
+    elif stored_rgb:
+        luma = (
+            0.2126 * features[1] + 0.7152 * features[2] + 0.0722 * features[3]
         )
-    x = features[:need]
+        x = np.concatenate([features[:1], luma[None], features[4:]])
+    else:
+        x = features
+    need = cfg.in_ch - (1 if cfg.opening_visibility else 0)
+    if x.shape[0] < need:
+        raise ValueError(
+            f"evidence provides {x.shape[0]} channels, model needs {need}"
+        )
+    x = x[:need]
     if cfg.opening_visibility:
         x = np.concatenate([x, np.zeros_like(x[:1])])
     return x
@@ -66,6 +82,14 @@ def run(
     if cfg.predict_offsets:
         arrays["offsets"] = (
             out[2][0, :, :sx, :sy, :sz].cpu().numpy().astype(np.float16)
+        )
+    if cfg.predict_openings:
+        k = 3 if cfg.predict_offsets else 2
+        arrays["openings"] = (
+            torch.sigmoid(out[k])[0, :, :sx, :sy, :sz]
+            .cpu()
+            .numpy()
+            .astype(np.float16)
         )
     os.makedirs(os.path.dirname(out_npz) or ".", exist_ok=True)
     np.savez_compressed(out_npz, **arrays)

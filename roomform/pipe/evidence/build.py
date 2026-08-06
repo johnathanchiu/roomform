@@ -119,8 +119,10 @@ def build_evidence(
     raw = {"pts": pts, "pts_normal": normals}
     if colors is not None:
         raw["pts_color"] = colors
+    # RGB superset (11ch): occ, r, g, b, |nrm| xyz, density, offsets.
+    # Grayscale checkpoints get luma computed at load time.
     features = raw_point_evidence(
-        raw, shape, "grayscale", include_local_offsets=True
+        raw, shape, "rgb", include_local_offsets=True
     )
 
     np.savez_compressed(
