@@ -1,8 +1,8 @@
 # roomform
 
-Indoor structure completion from real-world scans: point cloud in,
-completed structural shell (walls, floors, ceilings — including
-unscanned regions) + objects out.
+Parses real-world indoor scans into structured, editable scenes:
+point cloud in, room boundaries (walls, floors, ceilings — inferred
+through occlusion) + objects out.
 
 Pipeline spine (see docs/data-contracts.md — the contracts ARE the
 architecture; code transfers in behind them):
