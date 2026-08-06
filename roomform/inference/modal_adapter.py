@@ -10,7 +10,7 @@ Usage::
 
     from roomform.modal_adapter import StageApp, torch_image
 
-    stage = StageApp("lifting")
+    stage = StageApp("lifting-spatiallm")
 
     @stage.gpu(image=torch_image("transformers"), timeout=600)
     def lift(point_cloud_bytes: bytes) -> str: ...

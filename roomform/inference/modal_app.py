@@ -15,7 +15,7 @@ import numpy as np
 from roomform.contracts import EvidenceGrid
 from roomform.inference.modal_adapter import StageApp, torch_image
 
-stage = StageApp("inference")
+stage = StageApp("completion")
 app = stage.app  # `modal run` discovers this name
 
 image = torch_image(with_roomform=True)

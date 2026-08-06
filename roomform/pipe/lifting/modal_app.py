@@ -19,7 +19,7 @@ from roomform.inference.modal_adapter import StageApp, torch_image
 SPATIALLM_COMMIT = "8913c44d84a450c53e9340b13317f8cf7144a738"
 MODEL_ID = "ysmao/SpatialLM1.1-Qwen-0.5B-ARKitScenes-SFT"
 
-stage = StageApp("lifting")
+stage = StageApp("lifting-spatiallm")
 app = stage.app  # `modal run` discovers this name
 
 image = torch_image(

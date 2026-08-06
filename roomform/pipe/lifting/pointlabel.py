@@ -55,7 +55,7 @@ EXCLUDE = {"wall", "floor"}  # the shell model owns structure
 MIN_CLUSTER_PTS = 200  # at 2 cm sampling
 CLUSTER_RADIUS = 0.05  # meters; bridges adjacent 2 cm voxels
 
-stage = StageApp("pointlabel")
+stage = StageApp("lifting-pointlabel")
 app = stage.app  # `modal run` discovers this name
 
 image = torch_image(
