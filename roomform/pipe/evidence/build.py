@@ -30,7 +30,7 @@ def _dedup_2cm(pts: np.ndarray, colors: np.ndarray | None):
 def _pca_normals(pts: np.ndarray, k: int = 16) -> np.ndarray:
     from scipy.spatial import cKDTree
 
-    _, nbr = cKDTree(pts).query(pts, k=k)
+    _, nbr = cKDTree(pts).query(pts, k=k, workers=-1)
     nb = pts[nbr]  # [N, k, 3]
     nb = nb - nb.mean(1, keepdims=True)
     cov = np.einsum("nki,nkj->nij", nb, nb) / k
