@@ -154,10 +154,6 @@ CV4AEC, and HouseLayout3D.
 
 ## License
 
-Code — pipeline, model architecture, inference, viewers, agent — is
-Apache 2.0 (see LICENSE). Trained weights/checkpoints and the
-synthetic data generation pipeline (`research/datagen/`) are
-CC BY-NC 4.0 (see LICENSE-CC-BY-NC-4.0): free for research,
-commercial use needs a separate license. Both files carry the
-unmodified canonical license texts; this section defines which
-applies where.
+- Code: [Apache 2.0](LICENSE)
+- Trained weights and `research/datagen/`: [CC BY-NC 4.0](LICENSE-CC-BY-NC-4.0)
+  — free for research; commercial use needs a separate license.
