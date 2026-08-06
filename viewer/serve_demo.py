@@ -27,7 +27,18 @@ _INJECT = (
 )
 
 
+# Assets of the app's hardcoded legacy projects; 404ing them makes the
+# editor's own availability filter drop those scenes from the dropdown.
+_BLOCKED = ("/fixtures/scenenn-005/", "/fixtures/object-reconstruction/")
+
+
 class Handler(SimpleHTTPRequestHandler):
+    def send_head(self):
+        if self.path.split("?")[0].startswith(_BLOCKED):
+            self.send_error(404)
+            return None
+        return super().send_head()
+
     def do_GET(self):
         if self.path.split("?")[0] in ("/", "/index.html"):
             with open(os.path.join(self.directory, "index.html"), "rb") as fh:
