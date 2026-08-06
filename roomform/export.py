@@ -254,12 +254,37 @@ def export_fixtures(
         os.path.join(out, "shell.glb")
     )
 
-    # ④ editable: measured gray + completed amber, one mesh the editor
-    # carves into objects using the analysis boxes
+    # ④ editable: measured gray + completed amber. Object voxels are
+    # carved OUT — they ship as per-object measured meshes, and any
+    # coincident copy in the background surface would swallow the
+    # editor's raycasts and make objects ungrabbable.
+    objmask = np.zeros(occ.shape, bool)
+    idx = np.argwhere(occ | anynode)
+    world = (idx + 0.5) * vox
+    for o in doc["objects"]:
+        c, s_ = np.asarray(o["center"]), np.asarray(o["size"])
+        ch, sh = math.cos(o["heading"]), math.sin(o["heading"])
+        rel = world - c
+        rot = np.stack(
+            [
+                rel[:, 0] * ch + rel[:, 1] * sh,
+                -rel[:, 0] * sh + rel[:, 1] * ch,
+                rel[:, 2],
+            ],
+            1,
+        )
+        inside = np.all(np.abs(rot) <= s_ / 2 + 0.04, axis=1)
+        objmask[tuple(idx[inside].T)] = True
+    editable_mask = anynode | (occ & ~objmask)
     editable_colors = _color_grid(
-        occ.shape, [(anynode & ~occ, INFERRED), (occ, MEASURED)]
+        occ.shape,
+        [
+            (anynode & ~occ, INFERRED),
+            (occ & ~objmask, MEASURED),
+            (anynode & occ, MEASURED),
+        ],
     )
-    _surface(anynode | occ, vox, editable_colors, center).export(
+    _surface(editable_mask, vox, editable_colors, center).export(
         os.path.join(out, "editable.glb")
     )
 
