@@ -138,7 +138,7 @@ _MODEL = {
 }
 
 
-@stage.gpu(image=image, retries=0, max_containers=1, scaledown_window=2)
+@stage.gpu(image=image, retries=0, max_containers=1, scaledown_window=180)
 def segment(point_cloud_bytes: bytes) -> bytes:
     """Point cloud bytes (ply, with normals+colors) -> labels npz
     bytes: pts [N,3] f32 raw-frame (2 cm-deduped), label [N] u8."""
