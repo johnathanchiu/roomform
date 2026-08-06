@@ -48,6 +48,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
@@ -266,11 +267,30 @@ async function loadScene(name) {
   current.traverse(o => { if (o.isPoints) groups.push(o); });
   const gdiv = document.getElementById('groups');
   gdiv.innerHTML = '';
+
+  // full-res RGB cloud, when the evidence stage wrote one; the voxel
+  // evidence layer defaults off in its favor
+  try {
+    const head = await fetch(`/artifacts/${name}/cloud.ply`, { method: 'HEAD' });
+    if (head.ok) {
+      const geo = await new PLYLoader().loadAsync(`/artifacts/${name}/cloud.ply`);
+      const cloud = new THREE.Points(geo, new THREE.PointsMaterial({
+        size: 0.02, vertexColors: geo.hasAttribute('color') }));
+      cloud.name = 'rgb cloud';
+      if (sceneName === name) {
+        scene3.add(cloud);
+        groups.unshift(cloud);
+        const ev = groups.find(g => (g.name || '') === 'evidence');
+        if (ev) ev.visible = false;
+      }
+    }
+  } catch { /* no cloud — voxel evidence stays on */ }
   for (const g of groups) {
-    const color = '#' + g.material.color.getHexString();
+    const color = g.material.vertexColors
+      ? '#cfcfcf' : '#' + g.material.color.getHexString();
     const label = document.createElement('label');
     label.className = 'grp';
-    label.innerHTML = `<input type="checkbox" checked><span class="dot" style="background:${color}"></span>${g.name || g.parent.name}`;
+    label.innerHTML = `<input type="checkbox"${g.visible ? ' checked' : ''}><span class="dot" style="background:${color}"></span>${g.name || g.parent.name}`;
     label.querySelector('input').onchange = e => { g.visible = e.target.checked; };
     gdiv.appendChild(label);
   }

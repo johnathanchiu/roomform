@@ -13,6 +13,8 @@ marks the degradation.
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import trimesh
 
@@ -25,6 +27,35 @@ def _dedup_2cm(pts: np.ndarray, colors: np.ndarray | None):
     cells = np.floor(pts / 0.02).astype(np.int64)
     _, keep = np.unique(cells, axis=0, return_index=True)
     return pts[keep], colors[keep] if colors is not None else None
+
+
+def _crop_to_dominant_region(pts: np.ndarray, cell_m: float = 0.5):
+    """Keep the dominant dense region of the scan footprint.
+
+    Tripod scans spill sparse long-range returns through doors and
+    windows; a percentile bound can't catch spill that is a few
+    percent of the cloud. Bin the xy footprint, threshold on density,
+    take the largest connected component, and keep points inside its
+    bbox (+1 m margin). A clean scan is one component — a no-op.
+    """
+    from scipy import ndimage
+
+    lo = pts[:, :2].min(0)
+    ij = np.floor((pts[:, :2] - lo) / cell_m).astype(np.int64)
+    shape = ij.max(0) + 1
+    counts = np.zeros(shape, np.int64)
+    np.add.at(counts, (ij[:, 0], ij[:, 1]), 1)
+    # ponytail: fixed floor + 1% of the densest cell; per-sensor tuning
+    # knob if a scanner profile ever needs it
+    dense = counts >= max(30, counts.max() // 100)
+    labels, n = ndimage.label(dense)
+    if n <= 1:
+        return np.ones(len(pts), bool)
+    best = 1 + np.argmax(ndimage.sum_labels(counts, labels, range(1, n + 1)))
+    cells = np.argwhere(labels == best)
+    bmin = cells.min(0) * cell_m + lo - 1.0
+    bmax = (cells.max(0) + 1) * cell_m + lo + 1.0
+    return np.all((pts[:, :2] >= bmin) & (pts[:, :2] <= bmax), axis=1)
 
 
 def _pca_normals(pts: np.ndarray, k: int = 16) -> np.ndarray:
@@ -63,6 +94,11 @@ def build_evidence(
     scan_path: str, out_npz: str, vox_m: float = VOX
 ) -> EvidenceGrid:
     pts, colors, normals = _load_scan(scan_path)
+    keep = _crop_to_dominant_region(pts)
+    if not keep.all():
+        pts = pts[keep]
+        colors = colors[keep] if colors is not None else None
+        normals = normals[keep] if normals is not None else None
     # robust grounding: scanner outlier tails (junk points below the
     # real floor) must not set the grid origin — the model was trained
     # with the floor at the grid bottom. Points outside the robust
@@ -92,6 +128,16 @@ def build_evidence(
         features=features.astype(np.float16),
         occ=(features[0] > 0).astype(np.uint8),
         sf=np.zeros(shape, np.uint8),  # v0: no carve — all non-occ unknown
+    )
+
+    # full-res RGB display cloud (grid frame) beside the npz — viewers
+    # show this instead of voxel centers
+    display_cap = 1_500_000
+    stride = max(1, len(pts) // display_cap)
+    disp = pts[::stride]
+    disp_colors = colors[::stride] if colors is not None else None
+    trimesh.PointCloud(disp, colors=disp_colors).export(
+        os.path.join(os.path.dirname(out_npz) or ".", "cloud.ply")
     )
     return EvidenceGrid(
         npz_path=out_npz,
