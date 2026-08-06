@@ -40,27 +40,11 @@ The package lives in `roomform/roomform/` (no `src/` layout).
 - `viewer/` (top level, outside the wheel) owns the web viewers and
   their dev servers.
 - `research/` owns training and experiments (not part of the pip
-  package; nothing in `roomform/` may import from it). See the parity
-  rules below.
+  package; nothing in `roomform/` may import from it). Its working
+  rules live in `research/AGENTS.md`.
 
 Outputs: pipeline results go to `artifacts/` (gitignored), weights to
 `checkpoints/` (gitignored), secrets to `.env` (gitignored).
-
-## Parity rules (research/)
-
-1. No architectures in `research/`. An experiment is a config plus a
-   script; architecture changes go into `roomform/model` behind a
-   config field — never a forked copy.
-2. No metrics in `research/`. All numbers come from `roomform.eval`,
-   so experiments are comparable by construction.
-3. Prototype escape valve: a genuinely new architecture may live in
-   its experiment dir while being evaluated, but it graduates (merged
-   into `roomform/model`, config-gated) or dies with its verdict.
-   Release checkpoints are never trained from research code.
-4. Data and checkpoints never enter git — volumes / releases only.
-
-Enforcement: `tests/test_parity.py` — every released checkpoint must
-round-trip through `roomform.inference.local`.
 
 ## Hard rules
 

@@ -15,7 +15,4 @@ package** — nothing in `roomform/` may import from here.
   - `run.py` — a thin launcher importing `roomform.model` + `research.train`
   - `README.md` — hypothesis → result → verdict (write the verdict!)
 
-Working rules for this directory (the parity rules) live in the
-repo-root [AGENTS.md](../AGENTS.md); `tests/test_parity.py` enforces
-them — every released checkpoint must round-trip through
-`roomform.inference.local`.
+Working rules for this directory live in [AGENTS.md](AGENTS.md).
