@@ -1,7 +1,7 @@
 # roomform
 
-Parses real-world indoor scans into structured, editable scenes:
-point cloud in, room boundaries (walls, floors, ceilings — inferred
+Parses point cloud indoor scans into structured, editable
+scenes: room boundaries (walls, floors, ceilings — inferred
 through occlusion) + objects out.
 
 Pipeline spine (see docs/data-contracts.md — the contracts ARE the

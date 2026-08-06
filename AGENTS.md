@@ -2,8 +2,8 @@
 
 ## Project purpose
 
-roomform parses real-world indoor scans into structured, editable
-scenes: point cloud in, room boundaries (walls, floors, ceilings —
+roomform parses point cloud indoor scans into structured,
+editable scenes: room boundaries (walls, floors, ceilings —
 inferred through occlusion) + objects out.
 
 The pipeline spine is four contracts (docs/data-contracts.md):
