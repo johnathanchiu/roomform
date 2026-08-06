@@ -1,7 +1,8 @@
 # roomform
 
 Indoor structure completion from real-world scans: point cloud in,
-watertight architectural shell + objects out.
+completed structural shell (walls, floors, ceilings — including
+unscanned regions) + objects out.
 
 Pipeline spine (see docs/data-contracts.md — the contracts ARE the
 architecture; code transfers in behind them):
