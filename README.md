@@ -146,6 +146,10 @@ If you use roomform in your research, please cite:
 }
 ```
 
+This work is generously supported by [Modal](https://modal.com) and
+[Akshat Bubna](https://github.com/aksh-at)
+([@akshat_b](https://x.com/akshat_b)).
+
 Object lifting uses [SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
 (Manycore Research); object mesh reconstruction uses
 [SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via fal.ai.
