@@ -65,8 +65,52 @@ function CursorPivot() {
         target: c.target.toArray(),
       };
     };
+    // zoomToCursor converges ON the surface: near it the exponential
+    // step decays into a crawl and can never pass through. Inside the
+    // handoff radius, wheel-in becomes constant-speed flight along the
+    // cursor ray (camera + target together); wheel-out backs the
+    // camera straight out (target fixed) so the distance regrows and
+    // orbit-zoom resumes instead of crawling from a tiny locked
+    // distance. Speed scales with wheel delta for trackpads.
+    const FLY_RADIUS = 0.9;
+    const onWheel = (event: WheelEvent) => {
+      const c = controls as unknown as {
+        target: Vector3;
+        update: () => void;
+      } | null;
+      if (!c) return;
+      if (camera.position.distanceTo(c.target) > FLY_RADIUS) return;
+      const speed = Math.max(
+        0.35 * Math.min(Math.abs(event.deltaY) / 120, 1.5),
+        0.02,
+      );
+      if (event.deltaY >= 0) {
+        const back = camera
+          .getWorldDirection(new Vector3())
+          .multiplyScalar(-speed);
+        camera.position.add(back);
+      } else {
+        const rect = el.getBoundingClientRect();
+        const ndc = new Vector2(
+          ((event.clientX - rect.left) / rect.width) * 2 - 1,
+          -((event.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(ndc, camera);
+        camera.position.add(
+          raycaster.ray.direction.clone().multiplyScalar(speed),
+        );
+        c.target.add(raycaster.ray.direction.clone().multiplyScalar(speed));
+      }
+      c.update();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
     el.addEventListener("pointerdown", onDown, { capture: true });
-    return () => el.removeEventListener("pointerdown", onDown, { capture: true });
+    el.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    return () => {
+      el.removeEventListener("pointerdown", onDown, { capture: true });
+      el.removeEventListener("wheel", onWheel, { capture: true });
+    };
   }, [camera, controls, gl, raycaster, scene]);
   return null;
 }
