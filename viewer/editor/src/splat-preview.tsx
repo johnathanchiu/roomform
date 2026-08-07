@@ -277,7 +277,6 @@ function transformChanged(
 
 function MeasuredObject({
   proposal,
-  original,
   active,
   dragging = false,
   showObservedPoints = true,
@@ -288,7 +287,6 @@ function MeasuredObject({
   onDragStart,
 }: {
   proposal: SplatObjectProposal;
-  original: SplatObjectProposal;
   active: boolean;
   dragging?: boolean;
   showObservedPoints?: boolean;
@@ -339,15 +337,16 @@ function MeasuredObject({
       }
     });
   }, [dragging, object]);
+  // Native object meshes are object-local (center-subtracted, heading-
+  // unrotated), so the proposal transform IS the group transform and
+  // saved poses stay consistent across reloads.
   const rotation = useMemo(
-    () => new Quaternion(...proposal.rotation_xyzw)
-      .multiply(new Quaternion(...original.rotation_xyzw).invert()),
-    [original.rotation_xyzw, proposal.rotation_xyzw],
+    () => new Quaternion(...proposal.rotation_xyzw),
+    [proposal.rotation_xyzw],
   );
   const position = useMemo(
-    () => new Vector3(...proposal.position)
-      .sub(new Vector3(...original.position).applyQuaternion(rotation)),
-    [original.position, proposal.position, rotation],
+    () => new Vector3(...proposal.position),
+    [proposal.position],
   );
   useEffect(() => () => {
     object.traverse((child) => {
@@ -391,11 +390,7 @@ function MeasuredObject({
       {active && (
         <Html
           center
-          position={[
-            original.position[0],
-            original.position[1] + proposal.bounds[1] / 2 + 0.12,
-            original.position[2],
-          ]}
+          position={[0, proposal.bounds[1] / 2 + 0.12, 0]}
         >
           <div className="pointer-events-none whitespace-nowrap rounded-md border border-amber-300/20 bg-stone-950/90 px-2 py-1 text-[11px] font-medium text-amber-100 shadow-lg">
             {proposal.label} · measured surface{interferes ? " · ⚠ intersects wall" : ""}
@@ -408,7 +403,6 @@ function MeasuredObject({
 
 function MeasuredObjectMeshes({
   proposals,
-  originals,
   activeId,
   draggingId,
   showObservedPoints,
@@ -419,7 +413,6 @@ function MeasuredObjectMeshes({
   onDragStart,
 }: {
   proposals: SplatObjectProposal[];
-  originals: SplatObjectProposal[];
   activeId?: string;
   draggingId?: string;
   showObservedPoints: boolean;
@@ -431,13 +424,10 @@ function MeasuredObjectMeshes({
 }) {
   return proposals.flatMap((proposal) => {
     if (!proposal.measured_mesh_uri) return [];
-    const original = originals.find((candidate) => candidate.id === proposal.id);
-    if (!original) return [];
     return [(
       <MeasuredObject
         key={proposal.id}
         proposal={proposal}
-        original={original}
         active={proposal.id === activeId}
         dragging={proposal.id === draggingId}
         showObservedPoints={showObservedPoints}
@@ -624,10 +614,12 @@ export default function SplatPreview({
   referenceZUp = false,
   referenceYDown = false,
   referenceCull = false,
+  referenceOffset,
   secondaryReferenceUri,
   secondaryReferenceZUp = false,
   secondaryReferenceYDown = false,
   secondaryReferenceCull = false,
+  secondaryReferenceOffset,
   overlayUri,
   comparisonUri,
   comparisonZUp = false,
@@ -654,10 +646,12 @@ export default function SplatPreview({
   referenceZUp?: boolean;
   referenceYDown?: boolean;
   referenceCull?: boolean;
+  referenceOffset?: [number, number, number];
   secondaryReferenceUri?: string;
   secondaryReferenceZUp?: boolean;
   secondaryReferenceYDown?: boolean;
   secondaryReferenceCull?: boolean;
+  secondaryReferenceOffset?: [number, number, number];
   overlayUri?: string;
   comparisonUri?: string;
   comparisonZUp?: boolean;
@@ -758,10 +752,15 @@ export default function SplatPreview({
       && original.repair_patch?.status === "ready";
   });
 
-  useEffect(
-    () => setReady(showReference === false && !secondaryReferenceUri),
-    [referenceUri, secondaryReferenceUri, showReference],
-  );
+  // reset the loading banner only when the reference actually changes —
+  // native views share one cloud.ply, so layer toggles keep the same uri
+  // and no loader onLoad would ever clear a spurious reset
+  const loadedUri = useRef<string>(undefined);
+  useEffect(() => {
+    if (loadedUri.current === referenceUri) return;
+    loadedUri.current = referenceUri;
+    setReady(showReference === false && !secondaryReferenceUri);
+  }, [referenceUri, secondaryReferenceUri, showReference]);
   return (
     <>
       <Canvas
@@ -791,7 +790,6 @@ export default function SplatPreview({
           {showEntities && (
             <MeasuredObjectMeshes
               proposals={proposals}
-              originals={originalProposals}
               activeId={activeId}
               showObservedPoints={showObjectEvidence}
               collisionDebug={collisionDebug}
@@ -810,7 +808,9 @@ export default function SplatPreview({
               onDragEnd={handleDragEnd}
             />
           )}
-          {showReference !== false && (referenceKind === "mesh" ? (
+          {showReference !== false && (
+          <group position={referenceOffset ?? [0, 0, 0]}>
+          {referenceKind === "mesh" ? (
             referenceUri.endsWith(".glb") ? (
               <RoomGlb
                 uri={referenceUri}
@@ -839,9 +839,12 @@ export default function SplatPreview({
             )
           ) : (
             <RoomSplat uri={referenceUri} onLoad={handleLoad} />
-          ))}
+          )}
+          </group>
+          )}
           {secondaryReferenceUri && (
-            secondaryReferenceUri.endsWith(".glb") ? (
+          <group position={secondaryReferenceOffset ?? [0, 0, 0]}>
+          {secondaryReferenceUri.endsWith(".glb") ? (
               <RoomGlb
                 uri={secondaryReferenceUri}
                 sourceZUp={secondaryReferenceZUp}
@@ -865,7 +868,8 @@ export default function SplatPreview({
                 activeId={activeId}
                 onLoad={handleLoad}
               />
-            )
+            )}
+          </group>
           )}
           {overlayUri && (
             <PointCloud

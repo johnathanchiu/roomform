@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { BenchmarkScene } from "./fixtures-index";
+import type { BenchmarkScene } from "./native-scenes";
 import {
   productLayersFromSearch,
   productLayersParam,
