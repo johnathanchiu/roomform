@@ -34,6 +34,26 @@ def test_checkpoint_roundtrip(tmp_path):
     assert edges.shape == (1, 13, 8, 8, 8)
 
 
+def test_released_flat_state_dict_contract():
+    """The staged architecture still accepts pre-refactor checkpoint keys."""
+    from roomform.model.config import ModelConfig
+    from roomform.model.convformer import LEGACY_STAGE_BY_ROOT
+
+    cfg = ModelConfig(base=8, depth=2, heads=2)
+    source = cfg.build().state_dict()
+    legacy = {}
+    for key, value in source.items():
+        stage, old_key = key.split(".", 1)
+        if LEGACY_STAGE_BY_ROOT.get(old_key.split(".", 1)[0]) == stage:
+            legacy[old_key] = value
+        else:
+            legacy[key] = value
+
+    result = cfg.build().load_state_dict(legacy)
+    assert result.missing_keys == []
+    assert result.unexpected_keys == []
+
+
 def test_eval_metrics_shapes():
     import numpy as np
 
