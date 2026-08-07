@@ -183,13 +183,14 @@ Benchmark scenes in the docs come from
 
 ## Supported by
 
-<p>
-  <a href="https://modal.com"><img src="https://avatars.githubusercontent.com/u/88658467?v=4" height="56" alt="Modal"></a>
+<p align="center">
+  <a href="https://modal.com"><img src="https://avatars.githubusercontent.com/u/88658467?v=4" height="64" alt="Modal"></a>
 </p>
-
-This work is generously supported by [Modal](https://modal.com) and
-[Akshat Bubna](https://github.com/aksh-at)
-([@akshat_b](https://x.com/akshat_b)).
+<p align="center">
+  This work is generously supported by <a href="https://modal.com">Modal</a>
+  and <a href="https://github.com/aksh-at">Akshat Bubna</a>
+  (<a href="https://x.com/akshat_b">@akshat_b</a>).
+</p>
 
 ## License
 
