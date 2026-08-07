@@ -16,9 +16,14 @@ non-commercial — flag before shipping this backend in a paid product.
   python -m roomform.pipe.objects.lifting.pointlabel labels.npz
 """
 
+# pyright: reportMissingImports=false — the GPU function imports
+# packages that exist only inside this backend's Modal image.
 from __future__ import annotations
 
 import numpy as np
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
+from scipy.spatial import cKDTree
 
 from roomform.contracts import SceneObject
 from roomform.inference.modal_adapter import StageApp, torch_image
@@ -162,7 +167,6 @@ def segment(point_cloud_bytes: bytes) -> bytes:
     else:
         # phone/RGB-D plys ship without normals — estimate them here so
         # the pipeline can stream the raw scan without a local pass
-        from scipy.spatial import cKDTree
 
         cells = np.floor(pts / 0.02).astype(np.int64)
         _, keep0 = np.unique(cells, axis=0, return_index=True)
@@ -219,8 +223,6 @@ def segment(point_cloud_bytes: bytes) -> bytes:
 
 def _components(pts: np.ndarray):
     """Radius connected components over one class's points."""
-    from scipy.sparse import coo_matrix
-    from scipy.sparse.csgraph import connected_components
     from scipy.spatial import cKDTree
 
     pairs = cKDTree(pts).query_pairs(CLUSTER_RADIUS, output_type="ndarray")

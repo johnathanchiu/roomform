@@ -22,7 +22,9 @@ import json
 import os
 import time
 
+from roomform.export import export_glb
 from roomform.pipe.evidence.build import build_evidence
+from roomform.pipe.evidence.orient import ensure_z_up
 from roomform.pipe.fuse import fuse
 from roomform.pipe.objects.lifting.spatiallm import lift_from_proposals
 
@@ -128,8 +130,6 @@ def main() -> None:
     os.makedirs(out_dir, exist_ok=True)
     emit("start", scan=os.path.basename(args.scan))
 
-    from roomform.pipe.evidence.orient import ensure_z_up
-
     scan_path = ensure_z_up(args.scan, out_dir, args.up)
     if scan_path != args.scan:
         emit("orient.rotated", scan=os.path.basename(scan_path))
@@ -197,7 +197,6 @@ def main() -> None:
         evidence.origin,
         os.path.join(out_dir, "scene.json"),
     )
-    from roomform.export import export_glb
 
     export_glb(
         doc,

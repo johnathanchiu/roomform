@@ -20,7 +20,7 @@ class ModelConfig(BaseModel):
     vox_m: float = 0.08
     in_ch: int = 6  # occ, color, |nrm| xyz, log-density (+3 local offsets)
     color_mode: str = "grayscale"  # "grayscale" (1ch) or "rgb" (3ch)
-    base: int = 48  # UNet width; bottleneck is 8 * base
+    base: int = 48  # feature-pyramid width; global stage is 8 * base
     depth: int = 6  # attention blocks in the bottleneck
     heads: int = 8
     predict_offsets: bool = False  # sub-voxel surface refinement head

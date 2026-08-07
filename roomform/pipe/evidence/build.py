@@ -17,6 +17,8 @@ import os
 
 import numpy as np
 import trimesh
+from scipy import ndimage
+from scipy.spatial import cKDTree
 
 from roomform.contracts import EvidenceGrid
 from roomform.pipe.evidence.raw import VOX, raw_point_evidence
@@ -38,7 +40,6 @@ def _crop_to_dominant_region(pts: np.ndarray, cell_m: float = 0.5):
     take the largest connected component, and keep points inside its
     bbox (+1 m margin). A clean scan is one component — a no-op.
     """
-    from scipy import ndimage
 
     lo = pts[:, :2].min(0)
     ij = np.floor((pts[:, :2] - lo) / cell_m).astype(np.int64)
@@ -59,7 +60,6 @@ def _crop_to_dominant_region(pts: np.ndarray, cell_m: float = 0.5):
 
 
 def _pca_normals(pts: np.ndarray, k: int = 16) -> np.ndarray:
-    from scipy.spatial import cKDTree
 
     _, nbr = cKDTree(pts).query(pts, k=k, workers=-1)
     nb = pts[nbr]  # [N, k, 3]

@@ -40,7 +40,7 @@ never become a semantic shortcut.
 
 ## Architecture
 
-UNet outside, transformer inside (~27 M parameters at the default
+Four explicit stages (~27 M parameters at the default
 `base=48, depth=6, heads=8`):
 
     input [B, in_ch, X, Y, Z]
@@ -55,6 +55,12 @@ UNet outside, transformer inside (~27 M parameters at the default
           up ×2 + skip ─ dec1 (96) ─────────────┘
         up ×2 + skip ─ dec0 (48) ───────────────┘
       node head 1×1×1 → 3   ·   edge head 1×1×1 → 13
+
+The implementation mirrors that diagram: `FeatureEncoder` produces the
+skip pyramid, `GlobalLocalRefiner` performs the room-scale reasoning,
+`FeatureDecoder` restores native resolution, and `PatchGraphHeads`
+implement the output contract. `PatchGraphConvFormer.forward` only wires
+those stages together.
 
 The reasoning happens at the bottleneck: after three stride-2 convs
 each token summarizes a 64 cm block, and full global attention over

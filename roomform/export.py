@@ -28,6 +28,8 @@ import os
 
 import numpy as np
 import trimesh
+from scipy import ndimage
+from skimage import measure
 
 from roomform.contracts import SceneDocument, SceneObject
 from roomform.contracts.editor import (
@@ -39,6 +41,7 @@ from roomform.contracts.editor import (
     SplatAnalysis,
     SplatObjectProposal,
 )
+from roomform.planes import planar_shell
 
 MEASURED = [148, 149, 153, 255]  # gray = measured (editor convention)
 INFERRED = [245, 158, 11, 255]  # amber = inferred fill
@@ -163,7 +166,6 @@ def export_glb(
         # experimental: fitted-plane boundary mesh (roomform.planes) —
         # off by default until gap post-processing lands; gaps read as
         # holes in a solid surface far more than in a point cloud
-        from roomform.planes import planar_shell
 
         node_probs = d["node_probs"].astype(np.float32)
         if "agent_fill" in d.files:
@@ -230,8 +232,6 @@ def _surface(matrix: np.ndarray, vox: float, colors: np.ndarray, center):
     The mask is display-cleaned first: speck components vanish, one
     closing pass fills pinholes, and Taubin smoothing planes off the
     voxel stairsteps. Display only — pipeline artifacts stay raw."""
-    from scipy import ndimage
-    from skimage import measure
 
     raw = matrix
     labels, n = ndimage.label(matrix)

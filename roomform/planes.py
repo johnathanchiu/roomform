@@ -19,6 +19,7 @@ from __future__ import annotations
 import numpy as np
 import trimesh
 from scipy import ndimage
+from scipy.spatial import cKDTree
 
 CLASS_COLORS = {
     "wall": [188, 195, 204, 255],
@@ -77,7 +78,6 @@ def _wall_sheets(mask, offsets, opening_cells, vox, color):
     # of nearby footprint cells gives the in-plane horizontal axis
     foot = mask.any(2)
     fp = np.argwhere(foot)
-    from scipy.spatial import cKDTree
 
     tree = cKDTree(fp)
     nbrs = tree.query_ball_point(fp, r=3.0)

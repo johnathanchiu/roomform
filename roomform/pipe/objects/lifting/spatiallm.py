@@ -6,6 +6,8 @@ backend slots in behind the same function once the runner is ported.
 Output boxes are re-aligned into the grid frame via frame_shift.
 """
 
+# pyright: reportMissingImports=false — the GPU function imports
+# packages that exist only inside this backend's Modal image.
 from __future__ import annotations
 
 import pathlib
@@ -43,17 +45,6 @@ def lift_from_proposals(
             )
         )
     return out
-
-
-if __name__ == "__main__":
-    import sys
-
-    objs = lift_from_proposals(sys.argv[1], (0.0, 0.0, 0.0))
-    assert objs and all(o.size[0] > 0 for o in objs)
-    print(
-        f"object_lifting self-check OK: {len(objs)} objects, "
-        f"classes {sorted({o.cls for o in objs})[:5]}..."
-    )
 
 
 # ------------------------------------------------------- modal runner ----
@@ -170,3 +161,14 @@ def lift(point_cloud_bytes: bytes, detect_type: str = "object") -> str:
 @stage.entrypoint()
 def main(point_cloud: str, out: str, detect_type: str = "object") -> None:
     stage.run_file(lift, point_cloud, out, detect_type=detect_type)
+
+
+if __name__ == "__main__":
+    import sys
+
+    objs = lift_from_proposals(sys.argv[1], (0.0, 0.0, 0.0))
+    assert objs and all(o.size[0] > 0 for o in objs)
+    print(
+        f"object_lifting self-check OK: {len(objs)} objects, "
+        f"classes {sorted({o.cls for o in objs})[:5]}..."
+    )
