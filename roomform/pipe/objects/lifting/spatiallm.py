@@ -141,10 +141,14 @@ def lift(point_cloud_bytes: bytes, detect_type: str = "object") -> str:
 
         num_bins = model.config.point_config["num_bins"]
         grid_size = Layout.get_grid_size(num_bins)
-        point_cloud = cleanup_pcd(load_o3d_pcd(point_cloud_path), voxel_size=grid_size)
+        point_cloud = cleanup_pcd(
+            load_o3d_pcd(point_cloud_path), voxel_size=grid_size
+        )
         points, colors = get_points_and_colors(point_cloud)
         minimum = np.min(points, axis=0)
-        input_point_cloud = preprocess_point_cloud(points, colors, grid_size, num_bins)
+        input_point_cloud = preprocess_point_cloud(
+            points, colors, grid_size, num_bins
+        )
 
         with torch.inference_mode():
             layout = generate_layout(

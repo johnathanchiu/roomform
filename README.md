@@ -77,7 +77,10 @@ full pipeline runs.
 Attach reconstructed object meshes (optional):
 
 ```python
-from roomform.pipe.objects.reconstruction.sam3d import adopt_meshes, reconstruct_live
+from roomform.pipe.objects.reconstruction.sam3d import (
+    adopt_meshes,
+    reconstruct_live,
+)
 ```
 
 `adopt_meshes` matches existing aligned GLBs to objects by center and
