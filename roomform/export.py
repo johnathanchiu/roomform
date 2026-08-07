@@ -53,15 +53,32 @@ def _boundary_nodes(patchgraph, threshold: float) -> np.ndarray:
     """Threshold model output and merge provenance-separated agent fills."""
     node = patchgraph["node_probs"] > threshold
     if "agent_fill" in patchgraph.files:
-        # agent_fill is a class-agnostic [X,Y,Z] mask; approved fills
-        # count as wall boundary for display purposes
         fill = patchgraph["agent_fill"].astype(bool)
-        if fill.shape != node.shape[1:]:
+        if fill.shape == node.shape[1:]:
+            migrated = np.zeros_like(node)
+            migrated[0] = fill
+            fill = migrated
+        if fill.shape != node.shape:
             raise ValueError(
-                f"agent_fill shape {fill.shape} != grid {node.shape[1:]}"
+                f"agent_fill shape {fill.shape} does not match {node.shape}"
             )
-        node[0] |= fill
+        node |= fill
     return node
+
+
+def _cell_points(
+    cells: np.ndarray,
+    vox: float,
+    offsets: np.ndarray | None = None,
+) -> np.ndarray:
+    """Convert integer cells to learned surface points in grid-frame meters."""
+    points = (cells.astype(np.float64) + 0.5) * vox
+    if offsets is not None and len(cells):
+        points += (
+            np.stack([offsets[a][tuple(cells.T)] for a in range(3)], axis=1)
+            * vox
+        )
+    return points
 
 
 # ---------------------------------------------------------------- glb ----
@@ -118,7 +135,7 @@ def export_glb(
 
     if evidence_npz:
         occ = np.load(evidence_npz)["occ"] > 0
-        pts = np.argwhere(occ) * vox
+        pts = _cell_points(np.argwhere(occ), vox)
         if len(pts) > max_points:
             pts = pts[:: len(pts) // max_points + 1]
         scene.add_geometry(
@@ -131,7 +148,8 @@ def export_glb(
     if not include_shell:
         node = node & False
     for k, (name, color) in enumerate(CLASS_COLORS.items()):
-        pts = np.argwhere(node[k]) * vox
+        cells = np.argwhere(node[k])
+        pts = _cell_points(cells, vox, d.get("offsets"))
         if not len(pts):
             continue
         if len(pts) > max_points:
@@ -172,7 +190,8 @@ def export_glb(
                 ("windows", [180, 110, 255, 255], 0.70),
             )
         ):
-            pts = np.argwhere(op[k] > thr) * vox
+            cells = np.argwhere(op[k] > thr)
+            pts = _cell_points(cells, vox, d.get("offsets"))
             if len(pts):
                 scene.add_geometry(
                     trimesh.PointCloud(pts, colors=color),

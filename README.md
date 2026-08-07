@@ -24,7 +24,7 @@ need:
 
 | extra   | pulls in            | needed for                          |
 |---------|---------------------|-------------------------------------|
-| `model` | torch, scipy        | shell completion (local inference)  |
+| `model` | torch               | boundary completion (local inference) |
 | `modal` | modal               | SpatialLM lifting on Modal          |
 | `fal`   | fal-client, pillow  | live SAM 3D object reconstruction   |
 | `agent` | anthropic, openai, matplotlib | envelope completion (VLM-judged fills) |
@@ -77,7 +77,7 @@ full pipeline runs.
 Attach reconstructed object meshes (optional):
 
 ```python
-from roomform.pipe.reconstruction.sam3d import adopt_meshes, reconstruct_live
+from roomform.pipe.objects.reconstruction.sam3d import adopt_meshes, reconstruct_live
 ```
 
 `adopt_meshes` matches existing aligned GLBs to objects by center and

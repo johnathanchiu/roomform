@@ -2189,6 +2189,8 @@ dependencies = [
     { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pydantic" },
     { name = "scikit-image" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "trimesh" },
 ]
 
@@ -2200,6 +2202,8 @@ agent = [
     { name = "pydantic-settings" },
 ]
 dev = [
+    { name = "matplotlib" },
+    { name = "pydantic-settings" },
     { name = "pytest" },
     { name = "pyyaml" },
     { name = "ruff" },
@@ -2212,8 +2216,6 @@ modal = [
     { name = "modal" },
 ]
 model = [
-    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "torch" },
 ]
 
@@ -2222,17 +2224,19 @@ requires-dist = [
     { name = "anthropic", marker = "extra == 'agent'" },
     { name = "fal-client", marker = "extra == 'fal'", specifier = ">=0.5" },
     { name = "matplotlib", marker = "extra == 'agent'" },
+    { name = "matplotlib", marker = "extra == 'dev'" },
     { name = "modal", marker = "extra == 'modal'" },
     { name = "numpy" },
     { name = "openai", marker = "extra == 'agent'" },
     { name = "pillow", marker = "extra == 'fal'", specifier = ">=10" },
     { name = "pydantic", specifier = ">=2" },
     { name = "pydantic-settings", marker = "extra == 'agent'" },
+    { name = "pydantic-settings", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pyyaml", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "scikit-image" },
-    { name = "scipy", marker = "extra == 'model'" },
+    { name = "scipy" },
     { name = "torch", marker = "extra == 'model'" },
     { name = "trimesh" },
 ]

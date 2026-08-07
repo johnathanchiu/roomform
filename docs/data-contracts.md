@@ -96,7 +96,8 @@ keys — no breaking change.
   surface refinement, voxel-width units) when the checkpoint
   predicts them.
 - **0.1.2** — PatchGraph npz gains optional ADDITIVE
-  `agent_fill [X,Y,Z] u8`: VLM-approved boundary completion mask
+  `agent_fill [3,X,Y,Z] u8`: VLM-approved wall/floor/ceiling
+  completion masks
   written by `roomform.agent.envelope`. Provenance-separated —
   `node_probs` (measured prediction) is never modified; the
   approve/reject audit trail lives in

@@ -36,6 +36,10 @@ def fuse(
     node = d["node_probs"] > shell.node_threshold
     if "agent_fill" in d.files:
         fill = d["agent_fill"].astype(bool)
+        if fill.shape == node.shape[1:]:
+            migrated = np.zeros_like(node)
+            migrated[0] = fill
+            fill = migrated
         if fill.shape != node.shape:
             raise ValueError(
                 f"agent_fill shape {fill.shape} does not match {node.shape}"

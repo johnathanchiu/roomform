@@ -336,11 +336,12 @@ def apply(
 
     shape = data["node_probs"].shape
     existing = data.get("agent_fill")
-    agent_fill = (
-        existing.astype(np.uint8, copy=True)
-        if existing is not None
-        else np.zeros(shape, dtype=np.uint8)
-    )
+    agent_fill = np.zeros(shape, dtype=np.uint8)
+    if existing is not None and existing.shape == shape[1:]:
+        # Pre-0.1.2 artifacts stored wall-only fills without a class axis.
+        agent_fill[0] = existing.astype(np.uint8)
+    elif existing is not None:
+        agent_fill = existing.astype(np.uint8, copy=True)
     if agent_fill.shape != shape:
         raise ValueError(
             f"agent_fill shape {agent_fill.shape} does not match {shape}"

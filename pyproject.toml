@@ -10,12 +10,12 @@ authors = [
 ]
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-dependencies = ["numpy", "pydantic>=2", "trimesh", "scikit-image"]
+dependencies = ["numpy", "pydantic>=2", "trimesh", "scikit-image", "scipy"]
 
 [project.optional-dependencies]
-dev = ["ruff", "pytest", "pyyaml"]
+dev = ["ruff", "pytest", "pyyaml", "pydantic-settings", "matplotlib"]
 agent = ["anthropic", "openai", "pydantic-settings", "matplotlib"]
-model = ["torch", "scipy"]
+model = ["torch"]
 modal = ["modal"]
 fal = ["fal-client>=0.5", "pillow>=10"]
 
