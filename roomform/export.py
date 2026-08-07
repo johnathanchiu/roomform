@@ -164,8 +164,8 @@ def export_glb(
             else None,
             node_threshold=doc.shell.node_threshold,
         )
-        if planar is not None:
-            scene.add_geometry(planar, node_name="boundary-mesh")
+        for cls, mesh in planar.items():
+            scene.add_geometry(mesh, node_name=f"boundary-mesh-{cls}")
 
     if "openings" in d.files:
         op = d["openings"]

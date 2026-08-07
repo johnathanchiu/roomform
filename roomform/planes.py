@@ -29,6 +29,25 @@ CLASS_COLORS = {
 MIN_SEGMENT_CELLS = 24
 
 
+def _fill_sheet(quads: set) -> set:
+    """Close scan gaps inside a sheet's 2D footprint.
+
+    Unobserved patches inside a wall or floor read as holes in a solid
+    surface; morphological closing bridges small gaps and fill_holes
+    removes enclosed ones. The outer boundary keeps its stepped shape,
+    and callers punch openings back out AFTER filling.
+    """
+    if not quads:
+        return quads
+    ij = np.asarray(list(quads))
+    lo = ij.min(0) - 4
+    mask = np.zeros(ij.max(0) - lo + 9, bool)
+    mask[tuple((ij - lo).T)] = True
+    mask = ndimage.binary_closing(mask, np.ones((5, 3)), iterations=3)
+    mask = ndimage.binary_fill_holes(mask)
+    return {tuple(c + lo) for c in np.argwhere(mask)}
+
+
 def _horizontal_sheets(mask, offsets, vox, color):
     """Floors/ceilings: one flat sheet per connected component."""
     meshes = []
@@ -41,7 +60,7 @@ def _horizontal_sheets(mask, offsets, vox, color):
         if offsets is not None:
             z = z + offsets[2][tuple(cells.T)]
         plane_z = float(np.median(z)) * vox
-        quads = {(c[0], c[1]) for c in cells}
+        quads = _fill_sheet({(c[0], c[1]) for c in cells})
         meshes.append(_quad_sheet_xy(quads, plane_z, vox, color))
     return meshes
 
@@ -120,10 +139,12 @@ def _wall_sheets(mask, offsets, opening_cells, vox, color):
             u_dir = np.array([-normal2[1], normal2[0], 0.0])
             u = q[:, :2] @ np.array([u_dir[0], u_dir[1]])
             v = pts[:, 2]
-            quads = {
-                (int(np.floor(a / vox)), int(np.floor(c / vox)))
-                for a, c in zip(u, v)
-            }
+            quads = _fill_sheet(
+                {
+                    (int(np.floor(a / vox)), int(np.floor(c / vox)))
+                    for a, c in zip(u, v)
+                }
+            )
             if opening_cells is not None and len(opening_cells):
                 op = opening_cells.astype(np.float64) + 0.5
                 opw = op * vox
@@ -177,20 +198,27 @@ def planar_shell(
     openings: np.ndarray | None = None,
     node_threshold: float = 0.5,
     opening_threshold: float = 0.69,
-) -> trimesh.Trimesh | None:
-    """Fit planes to the boundary prediction and return one crisp mesh."""
+) -> dict[str, trimesh.Trimesh]:
+    """Fit planes to the boundary prediction; one crisp mesh per class."""
     node = node_probs > node_threshold
     opening_cells = (
         np.argwhere(openings.max(0) > opening_threshold)
         if openings is not None
         else None
     )
-    parts = []
-    parts += _wall_sheets(
-        node[0], offsets, opening_cells, vox, CLASS_COLORS["wall"]
-    )
-    parts += _horizontal_sheets(node[1], offsets, vox, CLASS_COLORS["floor"])
-    parts += _horizontal_sheets(node[2], offsets, vox, CLASS_COLORS["ceiling"])
-    if not parts:
-        return None
-    return trimesh.util.concatenate(parts)
+    parts = {
+        "wall": _wall_sheets(
+            node[0], offsets, opening_cells, vox, CLASS_COLORS["wall"]
+        ),
+        "floor": _horizontal_sheets(
+            node[1], offsets, vox, CLASS_COLORS["floor"]
+        ),
+        "ceiling": _horizontal_sheets(
+            node[2], offsets, vox, CLASS_COLORS["ceiling"]
+        ),
+    }
+    return {
+        cls: trimesh.util.concatenate(meshes)
+        for cls, meshes in parts.items()
+        if meshes
+    }
