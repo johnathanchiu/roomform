@@ -3,7 +3,10 @@
 These shapes belong to the editor (its zod schemas are the source of
 truth); this module keeps the export adapter honest — a field rename
 here fails loudly at construction instead of silently emitting JSON
-the editor drops. Frames: `position` is the editor's y-up frame
+the editor drops. The ``Splat*`` vocabulary is legacy from the
+editor's gaussian-splat era — its schemas kept the names when it moved
+to clouds/meshes, and this mirror keeps them so fields map 1:1 to the
+zod source of truth. Frames: `position` is the editor's y-up frame
 [x, height, -y]; `bounds` is [dx, height, dy]; `rotation_xyzw` is a
 quaternion about +Y.
 """
