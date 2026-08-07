@@ -41,7 +41,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 1.334
+    "floor_support_m": 1.334,
+    "score": null
    }
   },
   {
@@ -61,7 +62,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 475,
-    "floor_support_m": 1.321
+    "floor_support_m": 1.321,
+    "score": null
    }
   },
   {
@@ -81,7 +83,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 321,
-    "floor_support_m": 0.131
+    "floor_support_m": 0.131,
+    "score": null
    }
   },
   {
@@ -101,7 +104,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 454,
-    "floor_support_m": -0.036
+    "floor_support_m": -0.036,
+    "score": null
    }
   },
   {
@@ -121,7 +125,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 548,
-    "floor_support_m": -0.041
+    "floor_support_m": -0.041,
+    "score": null
    }
   },
   {
@@ -141,7 +146,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 726,
-    "floor_support_m": -0.031
+    "floor_support_m": -0.031,
+    "score": null
    }
   },
   {
@@ -161,7 +167,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 678,
-    "floor_support_m": 0.025
+    "floor_support_m": 0.025,
+    "score": null
    }
   },
   {
@@ -181,7 +188,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": -0.06
+    "floor_support_m": -0.06,
+    "score": null
    }
   },
   {
@@ -201,7 +209,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 74,
-    "floor_support_m": 0.021
+    "floor_support_m": 0.021,
+    "score": null
    }
   },
   {
@@ -221,7 +230,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": -0.046
+    "floor_support_m": -0.046,
+    "score": null
    }
   },
   {
@@ -241,7 +251,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": -0.023
+    "floor_support_m": -0.023,
+    "score": null
    }
   },
   {
@@ -261,7 +272,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": -0.054
+    "floor_support_m": -0.054,
+    "score": null
    }
   },
   {
@@ -281,7 +293,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.021
+    "floor_support_m": 0.021,
+    "score": null
    }
   },
   {
@@ -301,7 +314,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 36,
-    "floor_support_m": -0.044
+    "floor_support_m": -0.044,
+    "score": null
    }
   },
   {
@@ -321,7 +335,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.435
+    "floor_support_m": 0.435,
+    "score": null
    }
   },
   {
@@ -341,7 +356,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.976
+    "floor_support_m": 0.976,
+    "score": null
    }
   },
   {
@@ -361,7 +377,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 196,
-    "floor_support_m": 0.035
+    "floor_support_m": 0.035,
+    "score": null
    }
   },
   {
@@ -381,7 +398,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 22,
-    "floor_support_m": -0.023
+    "floor_support_m": -0.023,
+    "score": null
    }
   },
   {
@@ -401,7 +419,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 63,
-    "floor_support_m": 0.026
+    "floor_support_m": 0.026,
+    "score": null
    }
   },
   {
@@ -421,7 +440,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.858
+    "floor_support_m": 0.858,
+    "score": null
    }
   },
   {
@@ -441,7 +461,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 1.12
+    "floor_support_m": 1.12,
+    "score": null
    }
   },
   {
@@ -461,7 +482,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 84,
-    "floor_support_m": 0.708
+    "floor_support_m": 0.708,
+    "score": null
    }
   },
   {
@@ -481,7 +503,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.552
+    "floor_support_m": 0.552,
+    "score": null
    }
   },
   {
@@ -501,7 +524,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.044
+    "floor_support_m": 0.044,
+    "score": null
    }
   },
   {
@@ -521,7 +545,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 79,
-    "floor_support_m": -0.026
+    "floor_support_m": -0.026,
+    "score": null
    }
   },
   {
@@ -541,7 +566,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": -0.054
+    "floor_support_m": -0.054,
+    "score": null
    }
   },
   {
@@ -561,7 +587,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.664
+    "floor_support_m": 0.664,
+    "score": null
    }
   },
   {
@@ -581,7 +608,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.032
+    "floor_support_m": 0.032,
+    "score": null
    }
   },
   {
@@ -601,7 +629,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": -0.047
+    "floor_support_m": -0.047,
+    "score": null
    }
   },
   {
@@ -621,7 +650,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.365
+    "floor_support_m": 0.365,
+    "score": null
    }
   },
   {
@@ -641,27 +671,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": 0.517
-   }
-  },
-  {
-   "cls": "otherfurniture",
-   "center": [
-    6.8571119803859,
-    2.17567906217181,
-    1.510024945139885
-   ],
-   "size": [
-    3.0486083253623546,
-    1.7305424457504333,
-    2.402149895429611
-   ],
-   "heading": 1.3011695889692034,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 1327,
-    "floor_support_m": 0.229
+    "floor_support_m": 0.517,
+    "score": null
    }
   },
   {
@@ -681,7 +692,8 @@
    "mesh_path": null,
    "qa": {
     "wall_leak_pts": 0,
-    "floor_support_m": -0.044
+    "floor_support_m": -0.044,
+    "score": null
    }
   }
  ],
