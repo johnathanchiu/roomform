@@ -24,24 +24,20 @@ class Settings(BaseSettings):
     )
 
     provider: Literal["anthropic", "openai", "claude-cli"] = Field(
-        default=DEFAULT_PROVIDER,
-        validation_alias="ROOMFORM_PROVIDER",
+        default=DEFAULT_PROVIDER, validation_alias="ROOMFORM_PROVIDER"
     )
     anthropic_model: str = Field(
         default=DEFAULT_ANTHROPIC_MODEL,
         validation_alias="ROOMFORM_ANTHROPIC_MODEL",
     )
     anthropic_api_key: str | None = Field(
-        default=None,
-        validation_alias="ANTHROPIC_API_KEY",
+        default=None, validation_alias="ANTHROPIC_API_KEY"
     )
     openai_model: str = Field(
-        default=DEFAULT_OPENAI_MODEL,
-        validation_alias="ROOMFORM_MODEL",
+        default=DEFAULT_OPENAI_MODEL, validation_alias="ROOMFORM_MODEL"
     )
     openai_api_key: str | None = Field(
-        default=None,
-        validation_alias="OPENAI_API_KEY",
+        default=None, validation_alias="OPENAI_API_KEY"
     )
 
     def api_key_for(self, provider: str) -> str:

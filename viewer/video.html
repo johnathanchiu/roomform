@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>roomform launch stage</title>
+  <style>html,body{margin:0;background:#0c0a09;overflow:hidden}canvas{display:block}</style>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+
+// ----------------------------------------------------------------- config
+// Choreography contract: the film opens on RAW POINT CLOUDS ONLY.
+// Boundaries, boxes, objects all enter later, in that order. Two acts:
+// act one zooms the hero apartment (wipe, labeled structure, toss);
+// act two travels to the curved rotunda-annex and orbits it.
+const W = 1920, H = 1080;
+const SCENES = [
+  'redwood-apartment', 'redwood-loft',                     // top row
+  'arkit-laser-multi', 'synthetic-rotunda-annex',          // bottom row
+  'arkit-laser-168483',
+];
+const HERO = 'redwood-apartment';
+const FEATURE = 'synthetic-rotunda-annex';
+const SLOTS = {
+  'redwood-apartment': [-5.75, 7], 'redwood-loft': [5.75, 7],
+  'arkit-laser-multi': [-13, -7], 'synthetic-rotunda-annex': [0, -7],
+  'arkit-laser-168483': [13, -7],
+};
+const T = {
+  bounds: 3.5,   // structure tint + boxes begin (clouds alone before this)
+  drift: 6.5,    // camera starts drifting
+  zoom: 10.0,    // arrival at the hero
+  wipeA: 12.5,   // wipe begins (cloud -> labeled structure)
+  wipeB: 17.5,   // wipe returns (structure -> cloud, boxes snap on)
+  lift: 21.5,    // cloud exits; labeled structure + objects
+  toss: 25.0,    // physics
+  settle: 28.5,  // objects return home
+  travel: 31.0,  // camera leaves the hero for the rotunda-annex
+  orbit: 34.5,   // slow orbit around the curved building
+  end: 43.5,
+};
+const TINT = { floor: 0x22c55e, ceiling: 0x3b82f6, wall: 0xef4444 };
+const SKIP_BOX = new Set(['door', 'window', 'picture']);
+const seed = (() => { let a = 1337; return () => (a = a * 16807 % 2147483647) / 2147483647; })();
+const ease = t => t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t);
+
+// ----------------------------------------------------------------- setup
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.localClippingEnabled = true;
+document.body.appendChild(renderer.domElement);
+const scene3 = new THREE.Scene();
+scene3.background = new THREE.Color(0x0c0a09);
+scene3.add(new THREE.AmbientLight(0xffffff, 1.6));
+const dl = new THREE.DirectionalLight(0xffffff, 1.6);
+dl.position.set(6, -8, 12); scene3.add(dl);
+const camera = new THREE.PerspectiveCamera(46, W / H, 0.05, 400);
+camera.up.set(0, 0, 1);
+
+// clip planes for the hero wipe (world x)
+const clipCloud = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);
+const clipStruct = new THREE.Plane(new THREE.Vector3(1, 0, 0), 1e6);
+// feature act: clip the cloud remnant to the furniture band so the
+// blobs read clearly inside the labeled shell (floor/ceiling/upper
+// walls cut away)
+const clipAbove = new THREE.Plane(new THREE.Vector3(0, 0, 1), -0.06);  // keep z > 0.06
+const clipBelow = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1.6);   // keep z < 1.6
+
+// ----------------------------------------------------------------- load
+const ply = new PLYLoader(), glb = new GLTFLoader();
+const tiles = {};
+
+async function loadScene(name) {
+  const doc = await (await fetch(`/artifacts/${name}/scene.json`)).json();
+  const group = new THREE.Group();
+
+  const geo = await ply.loadAsync(`/artifacts/${name}/cloud.ply`);
+  const cloud = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.022, vertexColors: true, transparent: true, opacity: 0.0 }));
+  const bb = geo.boundingBox ?? (geo.computeBoundingBox(), geo.boundingBox);
+  const center = bb.getCenter(new THREE.Vector3());
+  group.add(cloud);
+
+  // labeled structure: fixed pixel-size dots so the far wall reads as
+  // clearly as the near one; ceiling stays translucent via fade
+  const gl2 = await glb.loadAsync(`/artifacts/${name}/scene.glb`);
+  const structure = new THREE.Group();
+  gl2.scene.traverse(o => {
+    if (!o.isPoints) return;
+    const nm = o.name || '';
+    if (!nm.startsWith('shell') && !nm.startsWith('openings')) return;
+    const role = nm.startsWith('shell-floor') ? 'floor'
+      : nm.startsWith('shell-ceiling') ? 'ceiling'
+      : nm.startsWith('shell') ? 'wall' : 'openings';
+    const mat = new THREE.PointsMaterial({
+      size: role === 'openings' ? 4.0 : 2.6, sizeAttenuation: false,
+      color: role === 'openings' ? o.material.color : new THREE.Color(TINT[role]),
+      transparent: true, opacity: 0.0 });
+    mat.userData.fade = role === 'ceiling' ? 0.4 : 1;
+    structure.add(new THREE.Points(o.geometry, mat));
+  });
+  group.add(structure);
+
+  // oriented detection boxes (clean detections only)
+  const boxes = new THREE.Group();
+  doc.objects.forEach(o => {
+    if (SKIP_BOX.has(o.cls)) return;
+    if (((o.qa && o.qa.wall_leak_pts) || 0) > 300) return;
+    const line = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(...o.size)),
+      new THREE.LineBasicMaterial({ color: 0xf5a623, transparent: true, opacity: 0.0 }));
+    line.position.set(...o.center);
+    line.rotation.z = o.heading;
+    boxes.add(line);
+  });
+  group.add(boxes);
+
+  // hero only: the segmented point chunk per clean object, hidden
+  // until the structure act — the film opens on clouds alone
+  const objects = new THREE.Group();
+  if (name === HERO) {
+    for (let i = 0; i < doc.objects.length; i++) {
+      const o = doc.objects[i];
+      if (SKIP_BOX.has(o.cls)) continue;
+      if (((o.qa && o.qa.wall_leak_pts) || 0) > 300) continue;
+      let inner;
+      try { inner = (await glb.loadAsync(`/artifacts/${name}/objects/object-${i}.glb`)).scene; }
+      catch { continue; }
+      inner.traverse(ch => {
+        if (ch.isPoints) ch.material = new THREE.PointsMaterial({
+          size: 0.035, vertexColors: true, transparent: true, opacity: 0.0 });
+      });
+      const holder = new THREE.Group();
+      holder.position.set(...o.center);
+      holder.rotation.z = o.heading; // exported points are heading-unrotated
+      holder.add(inner);
+      holder.userData.home = holder.position.clone();
+      holder.userData.baseRot = o.heading;
+      holder.userData.big = Math.hypot(...o.size) > 1.6;
+      holder.userData.vel = new THREE.Vector3();
+      holder.userData.spin = new THREE.Vector3();
+      objects.add(holder);
+    }
+    group.add(objects);
+  }
+
+  const [sx, sy] = SLOTS[name];
+  group.position.set(sx - center.x, sy - center.y, 0);
+  Object.assign(group.userData, {
+    cloud, structure, boxes, objects,
+    slot: new THREE.Vector3(sx, sy, 0),
+  });
+  scene3.add(group);
+  tiles[name] = group;
+}
+await Promise.all(SCENES.map(loadScene));
+const heroSlot = tiles[HERO].userData.slot;
+const featSlot = tiles[FEATURE].userData.slot;
+
+// ------------------------------------------------------------- camera path
+const P = (v, l) => ({ p: v, l });
+const lerpPose = (a, b, k) =>
+  P(a.p.clone().lerp(b.p, k), a.l.clone().lerp(b.l, k));
+const rel = (slot, dx, dy, dz, lx = 0, ly = 0, lz = 0.8) =>
+  P(slot.clone().add(new THREE.Vector3(dx, dy, dz)),
+    slot.clone().add(new THREE.Vector3(lx, ly, lz)));
+
+function camPose(t) {
+  const grid = P(new THREE.Vector3(0, -38, 40), new THREE.Vector3(0, 0, 0));
+  const grid2 = P(new THREE.Vector3(3, -34, 36), new THREE.Vector3(0, 0, 0));
+  const heroFar = rel(heroSlot, 2, -13, 10, 0, 0, 1);
+  const heroWipe = rel(heroSlot, 0.5, -11.5, 7.5);
+  const heroToss = rel(heroSlot, 7.5, -8.5, 6.5, 0, 0, 1);
+  const featView = rel(featSlot, 6.5, -8.5, 6.0);
+  const endPose = P(new THREE.Vector3(0, -38, 40), new THREE.Vector3(0, 0, 0));
+
+  if (t < T.drift) return lerpPose(grid, grid2, ease(t / T.drift));
+  if (t < T.zoom) return lerpPose(grid2, heroFar, ease((t - T.drift) / (T.zoom - T.drift)));
+  if (t < T.wipeA) return lerpPose(heroFar, heroWipe, ease((t - T.zoom) / (T.wipeA - T.zoom)));
+  if (t < T.lift) return heroWipe;
+  if (t < T.travel) { // drift toward the toss vantage during the object act
+    return lerpPose(heroWipe, heroToss, ease((t - T.lift) / 3.0));
+  }
+  if (t < T.orbit) return lerpPose(heroToss, featView, ease((t - T.travel) / (T.orbit - T.travel)));
+  if (t < T.end - 3.0) { // slow orbit around the curved building
+    const k = (t - T.orbit) / (T.end - 3.0 - T.orbit);
+    const ang = k * 1.15;
+    const base = featView.p.clone().sub(featSlot);
+    const r = new THREE.Vector3(
+      base.x * Math.cos(ang) - base.y * Math.sin(ang),
+      base.x * Math.sin(ang) + base.y * Math.cos(ang), base.z);
+    return P(featSlot.clone().add(r), featView.l.clone());
+  }
+  const from = camPose(T.end - 3.0 - 1e-4);
+  return lerpPose(from, endPose, ease((t - (T.end - 3.0)) / 3.0));
+}
+
+// ---------------------------------------------------------------- animate
+function setGroupOpacity(grp, v) {
+  grp.traverse(o => {
+    if (o.material) o.material.opacity = v * (o.material.userData.fade ?? 1);
+  });
+}
+
+function tick(t) {
+  SCENES.forEach((name, i) => {
+    const g = tiles[name];
+    const isHero = name === HERO, isFeat = name === FEATURE;
+
+    // ---- cloud: fades in first (nothing else on screen), non-focus
+    // tiles dim away during the zoom, the feature's cloud returns for
+    // the travel arrival and dissolves into its structure
+    let cloud = ease((t - 0.3 * i) / 1.6) * 0.95;
+    if (!isHero) cloud = Math.min(cloud, Math.max(1 - ease((t - T.drift) / 3.0), 0));
+    if (isFeat) {
+      // arrive at full cloud; once the labels take over, the cloud
+      // remnant stays bright but clipped to the furniture band
+      const arrive = ease((t - T.travel) / 1.2) * (1 - ease((t - T.travel - 1.6) / 1.6));
+      const remnant = 0.9 * ease((t - T.travel) / 1.2);
+      cloud = Math.max(cloud, 0.95 * arrive, remnant);
+      const clipK = ease((t - T.travel - 1.6) / 1.0);
+      g.userData.cloud.material.clippingPlanes =
+        clipK > 0 ? [clipAbove, clipBelow] : null;
+    }
+    if (isHero && t >= T.lift) cloud = 0;
+    if (!isHero && !isFeat) {
+      // the closing pull-out shows all five samples again — labeled,
+      // with a dim cloud remnant so the furniture stays legible
+      cloud = Math.max(cloud, 0.35 * ease((t - (T.end - 3.2)) / 1.6));
+    }
+    g.userData.cloud.material.opacity = cloud;
+
+    // ---- structure: a soft tint at grid distance, full for the hero
+    // wipe/object act and the feature orbit
+    let struct = ease((t - T.bounds - 0.4 * i) / 1.5) * 0.5;
+    if (!isHero) struct = Math.min(struct, Math.max(1 - ease((t - T.drift) / 3.0), 0));
+    if (isHero && t >= T.lift) struct = 0.9;
+    if (isFeat && t >= T.travel) struct = Math.max(struct, 0.9 * ease((t - T.travel - 1.4) / 1.5));
+    // closing statement: every sample ends labeled
+    struct = Math.max(struct, 0.9 * ease((t - (T.end - 3.2)) / 1.6));
+    setGroupOpacity(g.userData.structure, struct);
+
+    // ---- boxes: snap on after the boundary tint, dim with the zoom;
+    // hero boxes resnap with the wipe, feature boxes on arrival
+    const zoomFade = Math.max(1 - ease((t - T.drift) / (isHero ? 2.0 : 3.0)), 0);
+    g.userData.boxes.children.forEach((line, j) => {
+      let v = ease((t - T.bounds - 0.35 * i - 0.05 * j) / 0.8) * zoomFade;
+      if (isHero) {
+        const re = ease((t - T.wipeB - 0.07 * j) / 0.8) * (1 - ease((t - T.travel) / 1.2));
+        v = Math.max(v, re);
+      }
+      line.material.opacity = 0.85 * v;
+    });
+  });
+
+  // ---- hero wipe: cloud on one side of the moving plane, labeled
+  // structure on the other; both scrub directions
+  const hero = tiles[HERO];
+  const cl = hero.userData.cloud.material;
+  const stMats = [];
+  hero.userData.structure.traverse(o => { if (o.material) stMats.push(o.material); });
+  if (t >= T.wipeA && t < T.lift) {
+    const span = 6.5;
+    const x = t < T.wipeB
+      ? heroSlot.x + span - 2 * span * ease((t - T.wipeA) / (T.wipeB - T.wipeA))
+      : heroSlot.x - span + 2 * span * ease((t - T.wipeB) / (T.lift - T.wipeB));
+    clipCloud.constant = x; clipCloud.normal.set(-1, 0, 0);
+    clipStruct.constant = -x; clipStruct.normal.set(1, 0, 0);
+    cl.clippingPlanes = [clipCloud];
+    stMats.forEach(m => {
+      m.clippingPlanes = [clipStruct];
+      m.opacity = 0.95 * (m.userData.fade ?? 1);
+    });
+  } else {
+    cl.clippingPlanes = null;
+    stMats.forEach(m => { m.clippingPlanes = null; });
+  }
+
+  // ---- hero objects: enter with the structure act, lift, toss, settle
+  hero.userData.objects.children.forEach((h, i) => {
+    setGroupOpacity(h, ease((t - T.lift) / 0.6));
+    const home = h.userData.home;
+    if (t < T.lift) return;
+    if (t < T.toss) {
+      const k = ease((t - T.lift - 0.045 * i) / 1.8);
+      h.position.set(home.x, home.y,
+        home.z + k * (1.0 + 0.7 * ((i * 2654435761 % 100) / 100)));
+      h.rotation.z = h.userData.baseRot + k * 0.35 * (((i * 40503) % 100) / 100 - 0.5);
+    } else if (t < T.settle) {
+      if (!h.userData.tossed) {
+        h.userData.tossed = true;
+        h.userData.vel.set((seed() - 0.5) * 2.8, (seed() - 0.5) * 2.8, 2.6 + seed() * 2.5);
+        h.userData.spin.set((seed() - 0.5) * 3, (seed() - 0.5) * 3, (seed() - 0.5) * 4);
+        if (h.userData.big) { // big furniture hops upright
+          h.userData.vel.multiplyScalar(0.5);
+          h.userData.spin.set(0, 0, (seed() - 0.5) * 1.2);
+        }
+      }
+      const dt = Math.min(t - (h.userData.pt ?? t), 0.05);
+      h.userData.pt = t;
+      h.userData.vel.z -= 9.8 * dt;
+      h.userData.vel.x *= 1 - 0.5 * dt; // drag keeps the toss in-room
+      h.userData.vel.y *= 1 - 0.5 * dt;
+      h.position.addScaledVector(h.userData.vel, dt);
+      h.rotation.x += h.userData.spin.x * dt;
+      h.rotation.y += h.userData.spin.y * dt;
+      h.rotation.z += h.userData.spin.z * dt;
+      const floor = 0.35;
+      if (h.position.z < floor && h.userData.vel.z < 0) {
+        h.position.z = floor;
+        h.userData.vel.z *= -0.42;
+        h.userData.vel.x *= 0.8; h.userData.vel.y *= 0.8;
+        h.userData.spin.multiplyScalar(0.7);
+      }
+    } else {
+      const k = ease((t - T.settle) / 2.2);
+      h.position.lerp(home, k);
+      const rest = h.userData.baseRot;
+      h.rotation.x *= (1 - k); h.rotation.y *= (1 - k);
+      h.rotation.z = rest + (h.rotation.z - rest) * (1 - k);
+    }
+  });
+
+  const pose = camPose(t);
+  camera.position.copy(pose.p);
+  camera.lookAt(pose.l);
+}
+
+// ----------------------------------------------------------------- record
+const doRecord = new URLSearchParams(location.search).get('record') === '1';
+let recorder = null, chunks = [];
+if (doRecord) {
+  const stream = renderer.domElement.captureStream(60);
+  recorder = new MediaRecorder(stream, {
+    mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 14_000_000 });
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = async () => {
+    await fetch('/video-save', { method: 'POST', body: new Blob(chunks, { type: 'video/webm' }) });
+    document.title = 'SAVED';
+  };
+}
+
+// wall-clock timeline: rAF rate varies by display
+let t0 = null, started = false;
+function loop(now) {
+  if (t0 === null) t0 = now;
+  const t = (now - t0) / 1000;
+  tick(t);
+  renderer.render(scene3, camera);
+  if (!started && recorder) { recorder.start(); started = true; }
+  if (t >= T.end) {
+    if (recorder) { recorder.stop(); return; }
+    t0 = null; // preview loops
+  }
+  requestAnimationFrame(loop);
+}
+document.title = 'READY';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

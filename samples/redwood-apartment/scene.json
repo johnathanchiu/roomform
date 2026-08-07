@@ -1,701 +1,722 @@
 {
- "version": "0.1.0",
- "source_scan": "redwood-apartment.ply",
- "frame_shift": [
-  -4.387899875640869,
-  -4.849699974060059,
-  -0.03400185704231262
- ],
- "shell": {
-  "npz_path": "artifacts/redwood-apartment/patchgraph.npz",
-  "vox_m": 0.08,
-  "origin": [
-   -4.387899875640869,
-   -4.849699974060059,
-   -0.03400185704231262
+  "version": "0.1.0",
+  "source_scan": "redwood-apartment.ply",
+  "frame_shift": [
+    -4.387899875640869,
+    -4.849699974060059,
+    -0.03400185704231262
   ],
-  "shape": [
-   112,
-   128,
-   40
+  "shell": {
+    "npz_path": "artifacts/redwood-apartment/patchgraph.npz",
+    "vox_m": 0.08,
+    "origin": [
+      -4.387899875640869,
+      -4.849699974060059,
+      -0.03400185704231262
+    ],
+    "shape": [
+      112,
+      128,
+      40
+    ],
+    "node_threshold": 0.5,
+    "edge_threshold": 0.5,
+    "model_id": "patch-graph-joint-rgb-55m-offset-head-r2.pt"
+  },
+  "objects": [
+    {
+      "cls": "cabinet",
+      "center": [
+        0.43427979730333455,
+        0.8356925267262536,
+        1.4628500044345856
+      ],
+      "size": [
+        0.3711561650037765,
+        0.6998630940914153,
+        0.09845995903015115
+      ],
+      "heading": 1.3870490789413452,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 1.334,
+        "score": null
+      }
+    },
+    {
+      "cls": "cabinet",
+      "center": [
+        2.0620650074841347,
+        8.499291038421699,
+        2.043273011445999
+      ],
+      "size": [
+        3.2003660821914672,
+        1.2852237844467163,
+        1.2843461227416992
+      ],
+      "heading": 0.8468950986862183,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 572,
+        "floor_support_m": 1.321,
+        "score": null
+      }
+    },
+    {
+      "cls": "cabinet",
+      "center": [
+        3.937295150238212,
+        1.1926579124686798,
+        1.4572129984200002
+      ],
+      "size": [
+        2.23613693356514,
+        0.12434941224753848,
+        2.4931739887595175
+      ],
+      "heading": 1.4273641109466553,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 307,
+        "floor_support_m": 0.131,
+        "score": null
+      }
+    },
+    {
+      "cls": "cabinet",
+      "center": [
+        4.24869032744155,
+        1.5389892872442998,
+        1.3207937238737937
+      ],
+      "size": [
+        0.4781311132013798,
+        0.9318965345621109,
+        2.5529174450784917
+      ],
+      "heading": 0.45822346210479736,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 702,
+        "floor_support_m": -0.036,
+        "score": null
+      }
+    },
+    {
+      "cls": "cabinet",
+      "center": [
+        4.58303750798093,
+        3.204222333841461,
+        0.6408855738304555
+      ],
+      "size": [
+        1.5643304300308227,
+        0.5706309843063354,
+        1.2036671443656086
+      ],
+      "heading": 1.5333431959152222,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 483,
+        "floor_support_m": -0.041,
+        "score": null
+      }
+    },
+    {
+      "cls": "cabinet",
+      "center": [
+        4.675737251175319,
+        6.072420529605843,
+        1.3798514371505008
+      ],
+      "size": [
+        1.6259899675846103,
+        0.4326735187321902,
+        2.662614871384576
+      ],
+      "heading": 1.3778730630874634,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 564,
+        "floor_support_m": -0.031,
+        "score": null
+      }
+    },
+    {
+      "cls": "cabinet",
+      "center": [
+        5.491751257634748,
+        4.710144877178277,
+        1.3686115017533307
+      ],
+      "size": [
+        0.28506913661956795,
+        1.7288168931007384,
+        2.5264190047979365
+      ],
+      "heading": 1.2924302816390991,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 649,
+        "floor_support_m": 0.025,
+        "score": null
+      }
+    },
+    {
+      "cls": "cabinet",
+      "center": [
+        5.711153293237757,
+        3.41540460621085,
+        0.30263529272284356
+      ],
+      "size": [
+        0.5733242003619672,
+        0.07243133839219812,
+        0.5654815822560341
+      ],
+      "heading": 1.4559258222579956,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": -0.06,
+        "score": null
+      }
+    },
+    {
+      "cls": "bed",
+      "center": [
+        6.6144916662405775,
+        2.8019743029023485,
+        0.43481074973940853
+      ],
+      "size": [
+        1.681189649105072,
+        1.9485896074771882,
+        0.6682254973053933
+      ],
+      "heading": 1.4381803274154663,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.021,
+        "score": null
+      }
+    },
+    {
+      "cls": "chair",
+      "center": [
+        1.7517068180290778,
+        4.818246143962351,
+        0.4066499944718089
+      ],
+      "size": [
+        0.688006368279457,
+        0.5841483652591706,
+        0.7452399857458659
+      ],
+      "heading": 1.4436596632003784,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": -0.046,
+        "score": null
+      }
+    },
+    {
+      "cls": "chair",
+      "center": [
+        1.8972460307334185,
+        1.197172473653156,
+        0.29854249861091375
+      ],
+      "size": [
+        0.3308784596621992,
+        0.5670089527964592,
+        0.48228499479591846
+      ],
+      "heading": 1.3643182516098022,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": -0.023,
+        "score": null
+      }
+    },
+    {
+      "cls": "chair",
+      "center": [
+        2.5770788284948125,
+        4.745539024173376,
+        0.4022975030262023
+      ],
+      "size": [
+        0.5987532401084897,
+        0.5269612133502959,
+        0.7529850024543702
+      ],
+      "heading": 1.416469693183899,
+      "source": "pointlabel",
+      "mesh_path": "sam3d/object-11.glb",
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": -0.054,
+        "score": null
+      }
+    },
+    {
+      "cls": "chair",
+      "center": [
+        2.9256034908011648,
+        2.2855392981682865,
+        0.5037825081124901
+      ],
+      "size": [
+        0.523037773668766,
+        0.4848178304731846,
+        0.8054810147732496
+      ],
+      "heading": 0.2926459312438965,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.021,
+        "score": null
+      }
+    },
+    {
+      "cls": "sofa",
+      "center": [
+        0.8844491515168516,
+        2.924014915709794,
+        0.43785250714281576
+      ],
+      "size": [
+        2.2989867448806764,
+        0.9542244762182235,
+        0.8044050111202523
+      ],
+      "heading": 1.384043574333191,
+      "source": "pointlabel",
+      "mesh_path": "sam3d/object-13.glb",
+      "qa": {
+        "wall_leak_pts": 41,
+        "floor_support_m": -0.044,
+        "score": null
+      }
+    },
+    {
+      "cls": "table",
+      "center": [
+        2.283179220691387,
+        5.358277985900032,
+        0.6435596925020218
+      ],
+      "size": [
+        0.7938689661026002,
+        1.3847346711158752,
+        0.256382623910904
+      ],
+      "heading": 1.4061068296432495,
+      "source": "pointlabel",
+      "mesh_path": "sam3d/object-14.glb",
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.435,
+        "score": null
+      }
+    },
+    {
+      "cls": "table",
+      "center": [
+        2.3194326631026057,
+        6.471715537172252,
+        1.0895110142230988
+      ],
+      "size": [
+        0.3438976520299911,
+        0.9454800283908843,
+        0.06603998184204096
+      ],
+      "heading": 1.3562345504760742,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.976,
+        "score": null
+      }
+    },
+    {
+      "cls": "door",
+      "center": [
+        5.308262794673056,
+        1.074171165677697,
+        1.3660319638252258
+      ],
+      "size": [
+        0.13473130464553834,
+        2.3929803705215456,
+        2.5010959219932554
+      ],
+      "heading": 1.3487505912780762,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 227,
+        "floor_support_m": 0.035,
+        "score": null
+      }
+    },
+    {
+      "cls": "door",
+      "center": [
+        7.379127639713365,
+        6.796129180092109,
+        1.0497314181178807
+      ],
+      "size": [
+        0.3938244476914405,
+        0.977053008377552,
+        1.986062831431627
+      ],
+      "heading": 0.312782883644104,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 22,
+        "floor_support_m": -0.023,
+        "score": null
+      }
+    },
+    {
+      "cls": "bookshelf",
+      "center": [
+        0.4181662526696117,
+        0.8370000189829803,
+        0.7590120028704403
+      ],
+      "size": [
+        0.4235268652439117,
+        0.7456817060708999,
+        1.3070219971239565
+      ],
+      "heading": 1.3063186407089233,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 54,
+        "floor_support_m": 0.026,
+        "score": null
+      }
+    },
+    {
+      "cls": "bookshelf",
+      "center": [
+        7.636853137465401,
+        5.847420539387976,
+        1.4346401280164716
+      ],
+      "size": [
+        0.4320334845781326,
+        0.04066964514553547,
+        0.9937492406368251
+      ],
+      "heading": 1.47226881980896,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.858,
+        "score": null
+      }
+    },
+    {
+      "cls": "picture",
+      "center": [
+        5.520201081856083,
+        8.602147638619904,
+        1.551507619023323
+      ],
+      "size": [
+        0.46368440270423883,
+        0.044141605524346234,
+        0.7032407605648041
+      ],
+      "heading": 1.35685396194458,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 1.12,
+        "score": null
+      }
+    },
+    {
+      "cls": "counter",
+      "center": [
+        1.8494400776962916,
+        8.013229231976815,
+        0.9607479977607727
+      ],
+      "size": [
+        1.4684110713005039,
+        3.044836978912353,
+        0.34631203413009637
+      ],
+      "heading": 0.029053855687379837,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 94,
+        "floor_support_m": 0.708,
+        "score": null
+      }
+    },
+    {
+      "cls": "desk",
+      "center": [
+        1.8020515402353618,
+        0.7039065878927824,
+        0.7947164994478226
+      ],
+      "size": [
+        0.5724447420239449,
+        1.3017310988903046,
+        0.32463298678398134
+      ],
+      "heading": 1.3762142658233643,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.552,
+        "score": null
+      }
+    },
+    {
+      "cls": "desk",
+      "center": [
+        2.0917958285266613,
+        0.5052569183570945,
+        0.34745699651539325
+      ],
+      "size": [
+        0.44036507815122605,
+        0.2868156236410141,
+        0.4472899912297726
+      ],
+      "heading": 0.193190336227417,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.044,
+        "score": null
+      }
+    },
+    {
+      "cls": "desk",
+      "center": [
+        3.8208810367309836,
+        2.477056849383049,
+        0.6993060144782067
+      ],
+      "size": [
+        1.392074910402298,
+        0.8076214540004734,
+        1.2910120254755022
+      ],
+      "heading": 1.4406657218933105,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 128,
+        "floor_support_m": -0.026,
+        "score": null
+      }
+    },
+    {
+      "cls": "refridgerator",
+      "center": [
+        3.7830420034042755,
+        0.1593176392124631,
+        0.8568359915725888
+      ],
+      "size": [
+        0.38951509028673187,
+        0.06905197188258172,
+        1.660863980390132
+      ],
+      "heading": 1.133263111114502,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": -0.054,
+        "score": null
+      }
+    },
+    {
+      "cls": "sink",
+      "center": [
+        2.6501176248587464,
+        6.8930981362649515,
+        0.9301250129938126
+      ],
+      "size": [
+        0.5079673752188683,
+        1.414826899766922,
+        0.3728000223636627
+      ],
+      "heading": 1.3297163248062134,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.664,
+        "score": null
+      }
+    },
+    {
+      "cls": "bathtub",
+      "center": [
+        3.577510602872839,
+        1.0387313452145968,
+        0.3290124963968992
+      ],
+      "size": [
+        0.41333894431591034,
+        0.45293431729078293,
+        0.43312499299645424
+      ],
+      "heading": 0.09624147415161133,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.032,
+        "score": null
+      }
+    },
+    {
+      "cls": "otherfurniture",
+      "center": [
+        2.4468385273420523,
+        6.048660143779211,
+        0.2655459983693435
+      ],
+      "size": [
+        0.37485036447644227,
+        1.179486707150936,
+        0.4654679933097212
+      ],
+      "heading": 1.4285377264022827,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": -0.047,
+        "score": null
+      }
+    },
+    {
+      "cls": "otherfurniture",
+      "center": [
+        4.6535066048578315,
+        1.2130199164636117,
+        1.3086240723729134
+      ],
+      "size": [
+        0.02,
+        1.0218924850225448,
+        1.726668140292168
+      ],
+      "heading": 1.3698596954345703,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.365,
+        "score": null
+      }
+    },
+    {
+      "cls": "otherfurniture",
+      "center": [
+        6.347268139132265,
+        2.2843379723098947,
+        0.6402902337908745
+      ],
+      "size": [
+        1.0545742836594583,
+        1.6169324880838394,
+        0.08585085213184351
+      ],
+      "heading": 1.55392324924469,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": 0.517,
+        "score": null
+      }
+    },
+    {
+      "cls": "otherfurniture",
+      "center": [
+        6.63712289176949,
+        2.2098530517696093,
+        1.510024945139885
+      ],
+      "size": [
+        3.032286305427551,
+        1.7058261448144911,
+        2.402149895429611
+      ],
+      "heading": 1.4823896884918213,
+      "source": "pointlabel",
+      "mesh_path": null,
+      "qa": {
+        "wall_leak_pts": 382,
+        "floor_support_m": 0.229,
+        "score": null
+      }
+    },
+    {
+      "cls": "otherfurniture",
+      "center": [
+        5.983028057199524,
+        6.916617723520107,
+        0.2535467807634268
+      ],
+      "size": [
+        0.2986068676412106,
+        0.3089646397531033,
+        0.4359495583805255
+      ],
+      "heading": 1.2064203023910522,
+      "source": "pointlabel",
+      "mesh_path": "sam3d/object-32.glb",
+      "qa": {
+        "wall_leak_pts": 0,
+        "floor_support_m": -0.044,
+        "score": null
+      }
+    }
   ],
-  "node_threshold": 0.5,
-  "edge_threshold": 0.5,
-  "model_id": "patch-graph-joint-rgb-55m-offset-head-r2.pt"
- },
- "objects": [
-  {
-   "cls": "cabinet",
-   "center": [
-    0.4345571699203128,
-    0.8352959445806807,
-    1.4628500044345856
-   ],
-   "size": [
-    0.700387030290085,
-    0.37307157756263676,
-    0.09845995903015115
-   ],
-   "heading": 2.968890050217369,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 1.334,
-    "score": null
-   }
-  },
-  {
-   "cls": "cabinet",
-   "center": [
-    2.1669115622634294,
-    8.30041865130382,
-    2.043273011445999
-   ],
-   "size": [
-    3.1452599543754878,
-    1.4192119860619532,
-    1.2843461227416992
-   ],
-   "heading": 1.0493687627796504,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 475,
-    "floor_support_m": 1.321,
-    "score": null
-   }
-  },
-  {
-   "cls": "cabinet",
-   "center": [
-    3.945808510249689,
-    1.1913087423373336,
-    1.4572129984200002
-   ],
-   "size": [
-    2.2380217315259854,
-    0.11658125251548045,
-    2.4931739887595175
-   ],
-   "heading": 1.4074046086240826,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 321,
-    "floor_support_m": 0.131,
-    "score": null
-   }
-  },
-  {
-   "cls": "cabinet",
-   "center": [
-    4.335773859209987,
-    1.624519186548146,
-    1.3207937238737937
-   ],
-   "size": [
-    0.8700952069837127,
-    0.5514069787581509,
-    2.5529174450784917
-   ],
-   "heading": 1.6722180055937348,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 454,
-    "floor_support_m": -0.036,
-    "score": null
-   }
-  },
-  {
-   "cls": "cabinet",
-   "center": [
-    4.543424209219149,
-    3.2075838758794735,
-    0.6408855738304555
-   ],
-   "size": [
-    1.5633784233948895,
-    0.5838167644205186,
-    1.2036671443656086
-   ],
-   "heading": 1.6516824096960367,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 548,
-    "floor_support_m": -0.041,
-    "score": null
-   }
-  },
-  {
-   "cls": "cabinet",
-   "center": [
-    4.628386191861999,
-    6.072730425598833,
-    1.3798514371505008
-   ],
-   "size": [
-    1.667725820169061,
-    0.37643024409585574,
-    2.662614871384576
-   ],
-   "heading": 1.5239521990813816,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 726,
-    "floor_support_m": -0.031,
-    "score": null
-   }
-  },
-  {
-   "cls": "cabinet",
-   "center": [
-    5.5111543148463635,
-    4.785652484217649,
-    1.3686115017533307
-   ],
-   "size": [
-    1.7319481667320282,
-    0.2874581219156964,
-    2.5264190047979365
-   ],
-   "heading": 2.9962647092715464,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 678,
-    "floor_support_m": 0.025,
-    "score": null
-   }
-  },
-  {
-   "cls": "cabinet",
-   "center": [
-    5.708496153598689,
-    3.415833470662939,
-    0.30263529272284356
-   ],
-   "size": [
-    0.5736023061253823,
-    0.06981687719876009,
-    0.5654815822560341
-   ],
-   "heading": 1.4220629160876206,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": -0.06,
-    "score": null
-   }
-  },
-  {
-   "cls": "bed",
-   "center": [
-    6.708228179850552,
-    3.0473247333576747,
-    0.43481074973940853
-   ],
-   "size": [
-    2.323304569400271,
-    1.6481147469685042,
-    0.6682254973053933
-   ],
-   "heading": 2.477878401063756,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 74,
-    "floor_support_m": 0.021,
-    "score": null
-   }
-  },
-  {
-   "cls": "chair",
-   "center": [
-    1.7619872411927915,
-    4.847763022002506,
-    0.4066499944718089
-   ],
-   "size": [
-    0.7502855830089772,
-    0.6567228242035976,
-    0.7452399857458659
-   ],
-   "heading": 1.8808789635187682,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": -0.046,
-    "score": null
-   }
-  },
-  {
-   "cls": "chair",
-   "center": [
-    1.8972572007199555,
-    1.198178845300331,
-    0.29854249861091375
-   ],
-   "size": [
-    0.5666551030993142,
-    0.33522014423595764,
-    0.48228499479591846
-   ],
-   "heading": 2.9220915544636794,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": -0.023,
-    "score": null
-   }
-  },
-  {
-   "cls": "chair",
-   "center": [
-    2.5451457219175975,
-    4.7575026182872735,
-    0.4022975030262023
-   ],
-   "size": [
-    0.7181081569622281,
-    0.6976634247342868,
-    0.7529850024543702
-   ],
-   "heading": -2.3978876017490056,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": -0.054,
-    "score": null
-   }
-  },
-  {
-   "cls": "chair",
-   "center": [
-    2.942849491684048,
-    2.2788170863691737,
-    0.5037825081124901
-   ],
-   "size": [
-    0.5914070037511349,
-    0.5238972685324683,
-    0.8054810147732496
-   ],
-   "heading": -2.4986775627246653,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.021,
-    "score": null
-   }
-  },
-  {
-   "cls": "sofa",
-   "center": [
-    0.8894781064046717,
-    2.922453891477948,
-    0.43785250714281576
-   ],
-   "size": [
-    2.311273205920198,
-    0.9676860890846518,
-    0.8044050111202523
-   ],
-   "heading": 1.4135302525732096,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 36,
-    "floor_support_m": -0.044,
-    "score": null
-   }
-  },
-  {
-   "cls": "table",
-   "center": [
-    2.2823962984884076,
-    5.36131289725589,
-    0.6435596925020218
-   ],
-   "size": [
-    1.3847623809820888,
-    0.802841364747243,
-    0.256382623910904
-   ],
-   "heading": 2.9396053415258803,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.435,
-    "score": null
-   }
-  },
-  {
-   "cls": "table",
-   "center": [
-    2.319119219911266,
-    6.472526796149317,
-    1.0895110142230988
-   ],
-   "size": [
-    0.9458139869837374,
-    0.34154067237067187,
-    0.06603998184204096
-   ],
-   "heading": 2.9323436407706174,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.976,
-    "score": null
-   }
-  },
-  {
-   "cls": "door",
-   "center": [
-    5.308246470912021,
-    1.074465529591484,
-    1.3660319638252258
-   ],
-   "size": [
-    2.3930010299409448,
-    0.1340074625103463,
-    2.5010959219932554
-   ],
-   "heading": 2.923794827698807,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 196,
-    "floor_support_m": 0.035,
-    "score": null
-   }
-  },
-  {
-   "cls": "door",
-   "center": [
-    7.350957552569666,
-    6.806451289841318,
-    1.0497314181178807
-   ],
-   "size": [
-    0.9681145644259158,
-    0.428261930830596,
-    1.986062831431627
-   ],
-   "heading": 2.0085856800258313,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 22,
-    "floor_support_m": -0.023,
-    "score": null
-   }
-  },
-  {
-   "cls": "bookshelf",
-   "center": [
-    0.4229926043463137,
-    0.8496919016456346,
-    0.7590120028704403
-   ],
-   "size": [
-    0.7639981492051695,
-    0.43772308726899567,
-    1.3070219971239565
-   ],
-   "heading": 2.8077713166405007,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 63,
-    "floor_support_m": 0.026,
-    "score": null
-   }
-  },
-  {
-   "cls": "bookshelf",
-   "center": [
-    7.628347212604847,
-    5.84828912941337,
-    1.4346401280164716
-   ],
-   "size": [
-    0.43246788306643114,
-    0.03110216834016839,
-    0.9937492406368251
-   ],
-   "heading": 1.3903913200381364,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.858,
-    "score": null
-   }
-  },
-  {
-   "cls": "picture",
-   "center": [
-    5.521433420013456,
-    8.601706085069539,
-    1.551507619023323
-   ],
-   "size": [
-    0.4637883302303867,
-    0.039766605710287756,
-    0.7032407605648041
-   ],
-   "heading": 1.3879498025569248,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 1.12,
-    "score": null
-   }
-  },
-  {
-   "cls": "counter",
-   "center": [
-    1.9851112094161518,
-    8.003322114814036,
-    0.9607479977607727
-   ],
-   "size": [
-    3.1063093975822573,
-    1.5100445799802127,
-    0.34631203413009637
-   ],
-   "heading": 1.440008347474423,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 84,
-    "floor_support_m": 0.708,
-    "score": null
-   }
-  },
-  {
-   "cls": "desk",
-   "center": [
-    1.8027020694842153,
-    0.7078535650979179,
-    0.7947164994478226
-   ],
-   "size": [
-    1.3067844309976544,
-    0.5768242819964251,
-    0.32463298678398134
-   ],
-   "heading": 2.9219534028053826,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.552,
-    "score": null
-   }
-  },
-  {
-   "cls": "desk",
-   "center": [
-    2.070348119679816,
-    0.5362279860427757,
-    0.34745699651539325
-   ],
-   "size": [
-    0.44178591197643324,
-    0.30167776429496496,
-    0.4472899912297726
-   ],
-   "heading": 3.1175449989502457,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.044,
-    "score": null
-   }
-  },
-  {
-   "cls": "desk",
-   "center": [
-    3.810849644438288,
-    2.4725098580346,
-    0.6993060144782067
-   ],
-   "size": [
-    1.3929320735027508,
-    0.7728632084475353,
-    1.2910120254755022
-   ],
-   "heading": 1.2981586510896523,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 79,
-    "floor_support_m": -0.026,
-    "score": null
-   }
-  },
-  {
-   "cls": "refridgerator",
-   "center": [
-    3.7818287182485273,
-    0.16054797400784704,
-    0.8568359915725888
-   ],
-   "size": [
-    0.3895052844137005,
-    0.0711930016125212,
-    1.660863980390132
-   ],
-   "heading": 1.1696743793191804,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": -0.054,
-    "score": null
-   }
-  },
-  {
-   "cls": "sink",
-   "center": [
-    2.647757505067142,
-    6.855433172557079,
-    0.9301250129938126
-   ],
-   "size": [
-    1.4227927837551648,
-    0.5507140183092671,
-    0.3728000223636627
-   ],
-   "heading": 2.794025010863448,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.664,
-    "score": null
-   }
-  },
-  {
-   "cls": "bathtub",
-   "center": [
-    3.581203819146184,
-    1.028484208013631,
-    0.3290124963968992
-   ],
-   "size": [
-    0.4683150521806585,
-    0.43048790182980656,
-    0.43312499299645424
-   ],
-   "heading": 1.3137228613623655,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.032,
-    "score": null
-   }
-  },
-  {
-   "cls": "otherfurniture",
-   "center": [
-    2.4545433681605706,
-    6.092347923822109,
-    0.2655459983693435
-   ],
-   "size": [
-    1.1817847883278225,
-    0.34936596246919016,
-    0.4654679933097212
-   ],
-   "heading": 2.891641074579727,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": -0.047,
-    "score": null
-   }
-  },
-  {
-   "cls": "otherfurniture",
-   "center": [
-    4.653511426349639,
-    1.2130411488213655,
-    1.3086240723729134
-   ],
-   "size": [
-    1.0218932104447713,
-    0.02,
-    1.726668140292168
-   ],
-   "heading": 2.940503407405169,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.365,
-    "score": null
-   }
-  },
-  {
-   "cls": "otherfurniture",
-   "center": [
-    6.337472621085333,
-    2.329817765060087,
-    0.6402902337908745
-   ],
-   "size": [
-    1.7205835249042436,
-    1.1616932227569332,
-    0.08585085213184351
-   ],
-   "heading": -2.876921858874714,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": 0.517,
-    "score": null
-   }
-  },
-  {
-   "cls": "otherfurniture",
-   "center": [
-    6.010417314247067,
-    6.904640563031288,
-    0.2535467807634268
-   ],
-   "size": [
-    0.35887627606651035,
-    0.31232468546864145,
-    0.4359495583805255
-   ],
-   "heading": 1.8272974156896227,
-   "source": "pointlabel",
-   "mesh_path": null,
-   "qa": {
-    "wall_leak_pts": 0,
-    "floor_support_m": -0.044,
-    "score": null
-   }
-  }
- ],
- "floor_z": 0.08
+  "floor_z": 0.08
 }

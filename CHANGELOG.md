@@ -4,6 +4,23 @@ Pipeline-facing changes. Versions follow the package version in
 `pyproject.toml`; the model checkpoints on
 [HF](https://huggingface.co/jchiu/roomform) version independently.
 
+## Unreleased
+
+### Pipeline
+- Reconstruction fit stage (`roomform.pipe.objects.reconstruction.fit`):
+  generated object meshes are treated as proposals — geometry QC
+  (flat-card, aspect, axis-distortion gates) rejects degenerate outputs,
+  survivors are affinely fitted into the measured box frame with
+  floor-snap, and an observed-alignment gate keeps a mesh only when
+  >=70% of its scan evidence lies within 20cm of the fitted surface.
+  Fitted poses are baked into the GLB (box-local), so viewers need no
+  transform logic.
+- e2e emits `reconstruction.skipped` on bare point-cloud scans: without
+  RGB payloads objects stay segmented point clouds.
+- Deployed Modal lifting path + container-level model cache: warm
+  end-to-end runs drop 77.8s -> 17.1s
+  (`uv run modal deploy -m roomform.pipe.objects.lifting.pointlabel`).
+
 ## 0.1.0 — 2026-08-07
 
 Initial release.

@@ -1,8 +1,12 @@
 # Roomform
 
-Parses indoor point cloud scans into structured, editable scenes.
+Parses indoor point cloud scans into structured, editable scenes —
+an open [RoomPlan API](https://developer.apple.com/augmented-reality/roomplan/)-style pipeline for any registered point cloud (laser
+scans, ARKit exports, RGB-D reconstructions): walls and openings,
+classified oriented object boxes, per-object segmented points, and
+evidence-gated object meshes.
 
-![roomform boundary prediction on a real apartment scan](assets/media/pipeline.gif)
+![roomform: raw scans parsed into structured scenes — point cloud to boundaries to editable objects](assets/media/hero.gif)
 
 ## Setup
 
@@ -26,10 +30,7 @@ Takes a registered point cloud (`.ply`, colors optional, normals
 estimated when missing; `.npz` with `pts`/`pts_normal`/`pts_color`
 also works). Writes `artifacts/<scan-stem>/` — `scene.json`,
 `scene.glb`, per-object meshes, intermediate grids — streaming NDJSON
-progress with a boundary-only partial scene seconds in. Weights pull
-automatically from
-[jchiu/roomform](https://huggingface.co/jchiu/roomform) on first run
-(`--ckpt` overrides).
+progress with a boundary-only partial scene seconds in.
 
 Lifting backends (`--lifter`):
 
