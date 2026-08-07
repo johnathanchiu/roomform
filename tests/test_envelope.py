@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from roomform.agent.envelope import apply, propose_gaps
+from roomform.agent.envelope import Verdict, apply, propose_gaps
 
 VOX = 0.08
 
@@ -42,13 +42,13 @@ def test_apply_is_additive_and_preserves_node_probs(tmp_path):
     np.savez_compressed(tmp_path / "patchgraph.npz", **pg)
     cands = propose_gaps(pg, vox_m=VOX)
     decisions = [
-        {"verdict": "approve", "reason": "approved for test"} for _ in cands
+        Verdict(verdict="approve", reason="approved for test") for _ in cands
     ]
     record = apply(tmp_path, cands, decisions, approve_all=True)
-    assert record["approved_voxels"] > 0
+    assert record.approved_voxels > 0
     with np.load(tmp_path / "patchgraph.npz") as d:
         assert d["agent_fill"].shape == pg["node_probs"].shape
-        assert d["agent_fill"][0].sum() == record["approved_voxels"]
+        assert d["agent_fill"][0].sum() == record.approved_voxels
         assert d["agent_fill"][1:].sum() == 0
         assert np.array_equal(d["node_probs"], pg["node_probs"])
     assert (tmp_path / "agent-completion.json").exists()
@@ -61,7 +61,7 @@ def test_apply_preserves_existing_fills(tmp_path):
     np.savez_compressed(tmp_path / "patchgraph.npz", **pg, agent_fill=previous)
     cands = propose_gaps(pg, vox_m=VOX)
     decisions = [
-        {"verdict": "approve", "reason": "approved for test"} for _ in cands
+        Verdict(verdict="approve", reason="approved for test") for _ in cands
     ]
 
     apply(tmp_path, cands, decisions)

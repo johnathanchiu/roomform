@@ -24,15 +24,18 @@ import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 import matplotlib
 import numpy as np
+from pydantic import BaseModel
 from scipy import ndimage
 from scipy.spatial import cKDTree
 from skimage.measure import label
 
 from roomform.agent.provider import create_client
 from roomform.agent.settings import Settings, get_settings
+from roomform.contracts import SceneDocument
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -59,6 +62,36 @@ class Candidate:
     b: tuple[int, int, int]
     fill: np.ndarray = field(repr=False)  # [N,3] int voxel indices
     card: str = ""
+
+
+class Verdict(BaseModel):
+    verdict: Literal["approve", "reject"]
+    reason: str = ""
+
+    @property
+    def approved(self) -> bool:
+        return self.verdict == "approve"
+
+
+class Decision(BaseModel):
+    """One judged candidate in the audit log."""
+
+    candidate: str
+    kind: str
+    span_m: float
+    verdict: Literal["approve", "reject"]
+    reason: str
+    card: str
+
+
+class CompletionRecord(BaseModel):
+    """One envelope-completion run in agent-completion.json."""
+
+    time: str
+    provider: str
+    approve_all: bool
+    approved_voxels: int
+    decisions: list[Decision]
 
 
 # ---------------------------------------------------------------- propose
@@ -291,11 +324,11 @@ def judge(
     *,
     settings: Settings | None = None,
     approve_all: bool = False,
-) -> list[dict[str, str]]:
+) -> list[Verdict]:
     """One VLM call per candidate, or deterministic approval for inspection."""
     if approve_all:
         return [
-            {"verdict": "approve", "reason": "approved (--approve-all)"}
+            Verdict(verdict="approve", reason="approved (--approve-all)")
             for _ in candidates
         ]
     client = create_client(settings or get_settings())
@@ -307,7 +340,7 @@ def judge(
         if verdict not in ("approve", "reject"):
             verdict = "reject"
         decisions.append(
-            {"verdict": verdict, "reason": str(raw.get("reason", ""))}
+            Verdict(verdict=verdict, reason=str(raw.get("reason", "")))
         )
     return decisions
 
@@ -318,11 +351,11 @@ def judge(
 def apply(
     scene_dir: Path,
     candidates: list[Candidate],
-    decisions: list[dict[str, str]],
+    decisions: list[Verdict],
     *,
     approve_all: bool = False,
     provider: str = "anthropic",
-) -> dict:
+) -> CompletionRecord:
     """Write additive agent_fill into patchgraph.npz + append the log.
 
     node_probs are never modified: agent fills stay a separate key so
@@ -348,32 +381,32 @@ def apply(
         )
     class_index = {"wall_gap": 0, "floor_hole": 1, "ceiling_hole": 2}
     for c, dec in zip(candidates, decisions):
-        if dec["verdict"] == "approve":
+        if dec.approved:
             channel = class_index[c.kind]
             agent_fill[channel, c.fill[:, 0], c.fill[:, 1], c.fill[:, 2]] = 1
     data["agent_fill"] = agent_fill
     np.savez_compressed(pg_path, **data)
 
-    record = {
-        "time": datetime.now(UTC).isoformat(timespec="seconds"),
-        "provider": provider,
-        "approve_all": approve_all,
-        "approved_voxels": int(agent_fill.sum()),
-        "decisions": [
-            {
-                "candidate": c.id,
-                "kind": c.kind,
-                "span_m": c.span_m,
-                "verdict": dec["verdict"],
-                "reason": dec["reason"],
-                "card": c.card,
-            }
+    record = CompletionRecord(
+        time=datetime.now(UTC).isoformat(timespec="seconds"),
+        provider=provider,
+        approve_all=approve_all,
+        approved_voxels=int(agent_fill.sum()),
+        decisions=[
+            Decision(
+                candidate=c.id,
+                kind=c.kind,
+                span_m=c.span_m,
+                verdict=dec.verdict,
+                reason=dec.reason,
+                card=c.card,
+            )
             for c, dec in zip(candidates, decisions)
         ],
-    }
+    )
     log_path = scene_dir / "agent-completion.json"
     runs = json.loads(log_path.read_text()) if log_path.exists() else []
-    runs.append(record)
+    runs.append(record.model_dump())
     log_path.write_text(json.dumps(runs, indent=2) + "\n")
     return record
 
@@ -400,9 +433,11 @@ def main() -> None:
     if args.provider:
         settings = settings.model_copy(update={"provider": args.provider})
 
-    scene = json.loads((args.scene_dir / "scene.json").read_text())
-    vox = float(scene["shell"]["vox_m"])
-    thr = float(scene["shell"].get("node_threshold", 0.5))
+    scene = SceneDocument(
+        **json.loads((args.scene_dir / "scene.json").read_text())
+    )
+    vox = scene.shell.vox_m
+    thr = scene.shell.node_threshold
     with np.load(args.scene_dir / "patchgraph.npz") as d:
         pg = {k: d[k] for k in d.files}
     with np.load(args.scene_dir / "evidence.npz") as d:
@@ -426,7 +461,7 @@ def main() -> None:
         approve_all=args.approve_all,
         provider=settings.provider,
     )
-    print(json.dumps(record, indent=2))
+    print(record.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
