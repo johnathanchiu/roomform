@@ -21,8 +21,8 @@ rotates boxes back, so outputs always stay in the input frame.
       --point-cloud scan.ply --out detections.json --up y
 """
 
-# pyright: reportMissingImports=false — the GPU function imports
-# packages that exist only inside this backend's Modal image.
+# pyright: reportMissingImports=false
+# (the GPU function imports packages that exist only in the Modal image)
 from __future__ import annotations
 
 import json

@@ -16,8 +16,8 @@ non-commercial — flag before shipping this backend in a paid product.
   python -m roomform.pipe.objects.lifting.pointlabel labels.npz
 """
 
-# pyright: reportMissingImports=false — the GPU function imports
-# packages that exist only inside this backend's Modal image.
+# pyright: reportMissingImports=false
+# (the GPU function imports packages that exist only in the Modal image)
 from __future__ import annotations
 
 import numpy as np
@@ -223,8 +223,6 @@ def segment(point_cloud_bytes: bytes) -> bytes:
 
 def _components(pts: np.ndarray):
     """Radius connected components over one class's points."""
-    from scipy.spatial import cKDTree
-
     pairs = cKDTree(pts).query_pairs(CLUSTER_RADIUS, output_type="ndarray")
     graph = coo_matrix(
         (np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])),

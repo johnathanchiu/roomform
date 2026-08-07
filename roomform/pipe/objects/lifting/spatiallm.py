@@ -6,8 +6,8 @@ backend slots in behind the same function once the runner is ported.
 Output boxes are re-aligned into the grid frame via frame_shift.
 """
 
-# pyright: reportMissingImports=false — the GPU function imports
-# packages that exist only inside this backend's Modal image.
+# pyright: reportMissingImports=false
+# (the GPU function imports packages that exist only in the Modal image)
 from __future__ import annotations
 
 import pathlib
