@@ -6,7 +6,9 @@ scans, ARKit exports, RGB-D reconstructions): walls and openings,
 classified oriented object boxes, per-object segmented points, and
 evidence-gated object meshes.
 
-![roomform: raw scans parsed into structured scenes — point cloud to boundaries to editable objects](assets/media/hero.gif)
+<p align="center">
+  <img src="assets/media/hero.gif" alt="roomform: raw scans parsed into structured scenes — point cloud to boundaries to editable objects" width="720">
+</p>
 
 ## Setup
 
