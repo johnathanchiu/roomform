@@ -131,5 +131,4 @@ scenes from [Redwood](http://redwood-data.org/indoor_lidar_rgbd/),
 
 - Code: [Apache 2.0](LICENSE)
 - Trained weights + synthetic datagen (when published):
-  [CC BY-NC 4.0](LICENSE-WEIGHTS) — free for research; commercial use
-  needs a separate license.
+  [CC BY-NC 4.0](LICENSE-WEIGHTS)
