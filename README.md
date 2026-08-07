@@ -1,10 +1,88 @@
 # Roomform
 
-Parses point cloud indoor scans into structured, editable
-scenes: room boundaries (walls, floors, ceilings — inferred
-through occlusion) + objects out.
+Parses indoor point cloud scans into structured, editable scenes.
 
 ![roomform boundary prediction on a real apartment scan](assets/media/pipeline.gif)
+
+## Try it (no setup)
+
+A pre-baked result ships in [samples/](samples/README.md):
+
+    uv sync
+    uv run python viewer/debug/serve.py --artifacts samples   # :8790
+
+## Setup
+
+Requires [uv](https://docs.astral.sh/uv/):
+
+    uv sync --extra model --extra modal --extra dev
+
+| extra   | needed for                                    |
+|---------|-----------------------------------------------|
+| `model` | boundary inference (torch)                    |
+| `modal` | remote object lifting ([credentials](https://modal.com/): `uv run modal setup`) |
+| `fal`   | SAM 3D object reconstruction ([`FAL_KEY`](https://fal.ai/) in `.env`) |
+| `agent` | envelope completion — VLM-judged fills (WIP)  |
+| `dev`   | `ruff format . && ruff check .` · `pytest tests/` |
+
+## Run
+
+    uv run python -m roomform.pipe.e2e SCAN.ply
+
+Takes a registered point cloud (`.ply`, colors optional, normals
+estimated when missing; `.npz` with `pts`/`pts_normal`/`pts_color`
+also works). Writes `artifacts/<scan-stem>/` — `scene.json`,
+`scene.glb`, per-object meshes, intermediate grids — streaming NDJSON
+progress with a boundary-only partial scene seconds in. Weights pull
+automatically from
+[jchiu/roomform](https://huggingface.co/jchiu/roomform) on first run
+(`--ckpt` overrides).
+
+Lifting backends (`--lifter`):
+
+| backend | model | upstream license |
+|---|---|---|
+| `pointlabel` (default) | PTv3 semseg + local clustering | MIT (ScanNet data ToU applies) |
+| `spatiallm` | SpatialLM 1.1 Qwen-0.5B | CC BY-NC 4.0 |
+| `unidet3d` (eval) | UniDet3D detector | CC BY-NC 4.0 |
+
+## View and edit
+
+**Debug viewer** (:8790) — read-only inspection of everything the
+pipeline produced: RGB cloud, boundary layers, evidence, boxes.
+
+    uv run python viewer/debug/serve.py
+
+**Editor** (:8792) — move objects, save back; reads
+`artifacts/<scene>/scene.json` natively, new runs appear on reload:
+
+    cd viewer/editor && bun install && bun run build
+    uv run python viewer/editor/serve.py
+
+`scene.glb` also opens in any glTF viewer.
+
+## Known limitations
+
+Broken scans in, broken scenes out: bad registration, mirror/glass
+ghosting, and tripod beam spill degrade results despite the built-in
+guards (orientation + leveling, spill cropping, wall-band rejection).
+A more robust boundary model is the next training iteration.
+Building-scale floors exceed local CPU attention; use GPU inference.
+
+## Layout
+
+    roomform/
+    ├── roomform/        the pip package
+    │   ├── contracts/   pydantic documents (the spine)
+    │   ├── pipe/        evidence -> objects -> fuse, e2e driver
+    │   ├── model/       patch-graph ConvFormer
+    │   ├── inference/   local runner + Modal adapter
+    │   ├── agent/       envelope completion (VLM judge)
+    │   └── export.py    GLB + per-object mesh exports
+    ├── viewer/          debug/ + editor/ apps
+    ├── research/        training + experiments (parity-ruled)
+    ├── docs/            documentation
+    └── artifacts/       pipeline outputs (gitignored)
 
 ## Docs
 
@@ -13,166 +91,7 @@ through occlusion) + objects out.
 - [Research](docs/research.md)
 - [Changelog](CHANGELOG.md)
 
-## Setup
-
-Requires [uv](https://docs.astral.sh/uv/). Install with the extras you
-need:
-
-    uv sync --extra model --extra modal --extra dev
-
-| extra   | pulls in            | needed for                          |
-|---------|---------------------|-------------------------------------|
-| `model` | torch               | boundary completion (local inference) |
-| `modal` | modal               | SpatialLM lifting on Modal          |
-| `fal`   | fal-client, pillow  | live SAM 3D object reconstruction   |
-| `agent` | anthropic, openai, matplotlib | envelope completion (VLM-judged fills) |
-| `dev`   | ruff, pytest, pyyaml| lint + tests                        |
-
-Credentials, only for the stages that use them:
-
-- Modal (lifting): `uv run modal setup` once.
-- FAL (SAM 3D): put `FAL_KEY=...` in `.env` (gitignored).
-
-## Checkpoint
-
-Weights live on the Hugging Face Hub at
-[jchiu/roomform](https://huggingface.co/jchiu/roomform) (CC BY-NC 4.0)
-and the pipeline downloads the default automatically on first run —
-or drop any checkpoint at
-`checkpoints/patch-graph-joint-rgb-55m-offset-head-r2.pt` yourself
-(`--ckpt` overrides the path). Checkpoints
-are `{"model": state_dict, "config": {...}}`; the config dict is what
-`roomform.model.config.ModelConfig` reads, so any compatible training
-run loads directly. Without a checkpoint the pipeline falls back to
-random weights and marks the shell `RANDOM-INIT` (excluded from
-exports).
-
-## Quickstart without a scan
-
-A pre-baked result ships in [samples/](samples/README.md):
-
-    uv run python viewer/debug/serve.py --artifacts samples   # :8790
-
-`samples/README.md` also lists public-domain scans to download for
-full pipeline runs.
-
-## Run the pipeline
-
-    uv run python -m roomform.pipe.e2e SCAN.ply
-
-- `SCAN.ply` — a registered point cloud (colors optional; normals are
-  PCA-estimated when missing). An `.npz` with `pts` / `pts_normal` /
-  `pts_color` works too.
-- Output goes to `artifacts/<scan-stem>/`: `evidence.npz`,
-  `patchgraph.npz`, `proposals.txt`, `scene.json`, `scene.glb`.
-- Progress streams as NDJSON events on stdout; a shell-only
-  `scene.partial.json` is emitted seconds in, while SpatialLM lifting
-  finishes on Modal (spawned first, runs concurrently).
-- `--proposals FILE` reuses existing SpatialLM output and skips Modal
-  entirely (fully local, ~10 s per scene on CPU).
-- `--sequential` disables the parallel DAG for debugging.
-
-Attach reconstructed object meshes (optional):
-
-```python
-from roomform.pipe.objects.reconstruction.sam3d import (
-    adopt_meshes,
-    reconstruct_live,
-)
-```
-
-`adopt_meshes` matches existing aligned GLBs to objects by center and
-copies them into the scene's artifact dir; `reconstruct_live` calls
-FAL SAM 3D on an object crop image (needs `FAL_KEY`).
-
-Object lifting backends (`--lifter`), with upstream licenses:
-
-| backend | model | upstream license |
-|---|---|---|
-| `pointlabel` (default) | PTv3 ScanNet semseg + local clustering | MIT (ScanNet data ToU applies) |
-| `spatiallm` | SpatialLM 1.1 Qwen-0.5B | CC BY-NC 4.0 |
-| `unidet3d` (eval) | UniDet3D multi-dataset detector | CC BY-NC 4.0, axis-aligned boxes |
-
-## View and edit results
-
-Two surfaces, two jobs:
-
-**Debug viewer** — inspect what the pipeline produced:
-
-    uv run python viewer/debug/serve.py          # http://127.0.0.1:8790
-
-Single-file three.js viewer over `artifacts/`: RGB cloud, boundary
-class layers, voxel evidence, detection boxes — plus curation for QA
-(drag on the floor plane, shift-drag raises, Q/E rotate, WASD nudge,
-delete/rename) with Save writing `scene.json` back.
-
-**Production editor** — the scene-editing product UX. It reads
-`artifacts/<scene>/scene.json` natively; new pipeline runs appear on
-reload, no export step:
-
-    cd viewer/editor && bun install && bun run build
-    uv run python viewer/editor/serve.py                     # :8792
-
-Draggable objects come from `artifacts/<scene>/objects/` — the e2e
-pipeline writes them; for older runs:
-`uv run python -m roomform.export objects artifacts/<scene>`.
-Save (⌘S) validates against the `SceneDocument` contract and writes
-`scene.json` back.
-
-`scene.glb` is also self-contained: drop it into any glTF viewer.
-
-Standalone GLB export: `uv run python -m roomform.export glb
-artifacts/<scene>/scene.json out.glb --evidence
-artifacts/<scene>/evidence.npz`.
-
-## More demos
-
-| objects | training |
-|---|---|
-| ![object detection](assets/media/objects.gif) | ![training progression](assets/media/training.gif) |
-
-## Known limitations
-
-Scan quality matters: heavily broken point clouds — bad registration,
-mirror/glass ghosting, single-tripod scans dominated by beam spill —
-degrade both the boundary prediction and the point-label objects.
-The pipeline guards what it can (orientation + leveling, dominant-
-region cropping, wall-band rejection), but garbage geometry is still
-garbage evidence. A more robust boundary model is the focus of the
-next training iteration. Building-scale scans (whole floors) exceed
-local CPU attention today; GPU inference or windowing is the
-workaround.
-
-## Tests and lint
-
-    uv run pytest tests/
-    uv run ruff format . && uv run ruff check .
-
-`tests/test_parity.py` is the contract that matters: every checkpoint
-written in the documented format must round-trip through
-`roomform.inference.local`.
-
-## Layout
-
-    roomform/
-    ├── roomform/            the pip package
-    │   ├── contracts/       pydantic documents (the spine)
-    │   ├── pipe/            evidence -> lifting -> reconstruction -> fuse, e2e driver
-    │   ├── model/           patch-graph ConvFormer (the ONE architecture)
-    │   ├── inference/       local runner + Modal adapter (StageApp)
-    │   ├── agent/           envelope completion (VLM judge, Claude/OpenAI)
-    │   ├── export.py        scene.glb + per-object mesh exports
-    │   └── eval.py          shell/connectivity F1 metrics
-    ├── viewer/              web viewers + dev servers (not in the wheel)
-    ├── research/            training loop + experiments (never
-    │                        defines architectures or metrics — parity
-    │                        with the package is enforced by tests)
-    ├── docs/                data contracts + migration log
-    └── artifacts/           pipeline outputs (gitignored)
-
 ## Citation
-
-If you use roomform in your research, please cite:
 
 ```bibtex
 @software{roomform2026,
@@ -184,17 +103,12 @@ If you use roomform in your research, please cite:
 }
 ```
 
-Object lifting uses
-[Point Transformer V3](https://github.com/Pointcept/Pointcept)
-(Pointcept, MIT) by default, with
-[SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
-(Manycore Research) and
-[UniDet3D](https://github.com/filaPro/unidet3d) as optional backends;
-optional object mesh reconstruction uses
-[SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via
-[fal.ai](https://fal.ai/models/fal-ai/sam-3/3d-objects).
-Benchmark scenes in the docs come from
-[Redwood](http://redwood-data.org/indoor_lidar_rgbd/),
+Built on [Point Transformer V3](https://github.com/Pointcept/Pointcept),
+[SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B),
+[UniDet3D](https://github.com/filaPro/unidet3d), and
+[SAM 3D Objects](https://ai.meta.com/sam3d/) via
+[fal.ai](https://fal.ai/models/fal-ai/sam-3/3d-objects). Benchmark
+scenes from [Redwood](http://redwood-data.org/indoor_lidar_rgbd/),
 [ARKitScenes](https://github.com/apple/ARKitScenes), and
 [SceneNN](https://hkust-vgd.github.io/scenenn/).
 
@@ -212,6 +126,6 @@ Benchmark scenes in the docs come from
 ## License
 
 - Code: [Apache 2.0](LICENSE)
-- Trained weights/checkpoints and the synthetic data generation code
-  (`research/datagen/`, when published): [CC BY-NC 4.0](LICENSE-WEIGHTS)
-  — free for research; commercial use needs a separate license.
+- Trained weights + synthetic datagen (when published):
+  [CC BY-NC 4.0](LICENSE-WEIGHTS) — free for research; commercial use
+  needs a separate license.
