@@ -157,10 +157,10 @@ def main() -> None:
                 segment as lift,
             )
         else:
-            from roomform.pipe.objects.lifting.modal_app import (
+            from roomform.pipe.objects.lifting.spatiallm import (
                 app as lifting_app,
             )
-            from roomform.pipe.objects.lifting.modal_app import lift
+            from roomform.pipe.objects.lifting.spatiallm import lift
 
         data = StageApp.read_input(args.scan)
         app_ctx = modal.enable_output(), lifting_app.run()

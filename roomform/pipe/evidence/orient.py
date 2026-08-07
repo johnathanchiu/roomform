@@ -19,6 +19,8 @@ import os
 import numpy as np
 import trimesh
 
+from roomform.pipe.evidence.build import _pca_normals
+
 # proper rotations mapping <axis>-up -> z-up
 _R = {
     0: np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]),
@@ -34,7 +36,6 @@ def detect_up(pts: np.ndarray, sample: int = 150_000) -> int:
     two facing walls are clean can still read as z-up (seen on one of
     ten benchmark scans) — pass an explicit up axis for those.
     """
-    from roomform.pipe.evidence.build import _pca_normals
 
     if len(pts) > sample:
         pts = pts[:: len(pts) // sample + 1]
@@ -76,7 +77,6 @@ def _level_rotation(pts: np.ndarray, sample: int = 120_000) -> np.ndarray:
     plane from low points with near-vertical normals and rotate its
     normal onto +z. Scans routinely lean a few degrees; the model's
     training world is perfectly level."""
-    from roomform.pipe.evidence.build import _pca_normals
 
     if len(pts) > sample:
         pts = pts[:: len(pts) // sample + 1]
