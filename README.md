@@ -167,16 +167,19 @@ If you use roomform in your research, please cite:
 }
 ```
 
-Object lifting uses [SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
-(Manycore Research); object mesh reconstruction uses
+Object lifting uses
+[Point Transformer V3](https://github.com/Pointcept/Pointcept)
+(Pointcept, MIT) by default, with
+[SpatialLM](https://huggingface.co/manycore-research/SpatialLM1.1-Qwen-0.5B)
+(Manycore Research) and
+[UniDet3D](https://github.com/filaPro/unidet3d) as optional backends;
+optional object mesh reconstruction uses
 [SAM 3D Objects](https://ai.meta.com/sam3d/) (Meta) via
 [fal.ai](https://fal.ai/models/fal-ai/sam-3/3d-objects).
 Benchmark scenes in the docs come from
-[Redwood](http://redwood-data.org/indoor/),
-[ARKitScenes](https://github.com/apple/ARKitScenes),
-[SceneNN](https://hkust-vgd.github.io/scenenn/),
-[CV4AEC](https://cv4aec.github.io/), and
-[HouseLayout3D](https://houselayout3d.github.io/).
+[Redwood](http://redwood-data.org/indoor_lidar_rgbd/),
+[ARKitScenes](https://github.com/apple/ARKitScenes), and
+[SceneNN](https://hkust-vgd.github.io/scenenn/).
 
 ## Supported by
 
