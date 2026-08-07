@@ -23,6 +23,9 @@ def make_handler(artifacts: Path):
             if self.path in ("/", "/index.html"):
                 body = VIEWER.read_bytes()
                 self._send(200, "text/html", body)
+            elif self.path.startswith("/video"):
+                page = VIEWER.parent.parent / "video.html"
+                self._send(200, "text/html", page.read_bytes())
             elif self.path == "/api/scenes":
                 scenes = sorted(
                     p.parent.name for p in artifacts.glob("*/scene.json")
@@ -51,6 +54,16 @@ def make_handler(artifacts: Path):
                 self._send(200, ctype, target.read_bytes())
             else:
                 self._send(404, "text/plain", b"not found")
+
+        def do_POST(self):
+            if self.path != "/video-save":
+                self._send(404, "text/plain", b"not found")
+                return
+            length = int(self.headers["Content-Length"])
+            out = Path("data/video")
+            out.mkdir(parents=True, exist_ok=True)
+            (out / "raw.webm").write_bytes(self.rfile.read(length))
+            self._send(200, "application/json", b'{"ok": true}')
 
         def _send(self, code: int, ctype: str, body: bytes) -> None:
             self.send_response(code)

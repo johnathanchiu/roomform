@@ -84,6 +84,19 @@ function select(i) {
   });
 }
 
+function renderObjectRows() {
+  const odiv = document.getElementById('objects');
+  odiv.innerHTML = '';
+  doc.objects.forEach((o, i) => {
+    const leak = (o.qa && o.qa.wall_leak_pts) || 0;
+    const row = document.createElement('div');
+    row.className = 'obj';
+    row.innerHTML = `${o.cls} <span class="${leak > 50 ? 'flag' : ''}">${leak > 50 ? `leak:${leak}` : ''}</span>`;
+    row.onclick = () => select(i);
+    odiv.appendChild(row);
+  });
+}
+
 function makeBox(o, i) {
   const g = new THREE.Group();
   g.position.set(...o.center);

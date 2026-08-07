@@ -56,7 +56,16 @@ function CursorPivot() {
         .intersectObjects(scene.children, true)
         .find((h) => h.distance > 0.05);
       if (hit) {
-        c.target.copy(hit.point);
+        // pivot at the cursor's DEPTH but on the current view axis:
+        // copying the hit point itself re-aims the camera (visible
+        // glitch on grab); projecting its distance onto the view ray
+        // keeps the frame rock-still while the orbit radius matches
+        // the surface under the cursor
+        const dir = camera.getWorldDirection(new Vector3());
+        const depth = hit.point.clone().sub(camera.position).dot(dir);
+        c.target
+          .copy(camera.position)
+          .addScaledVector(dir, Math.max(depth, 0.2));
         c.update();
       }
       // scripted-check handle (mirrors window.__camera)
@@ -96,6 +105,22 @@ function CursorPivot() {
           -((event.clientY - rect.top) / rect.height) * 2 + 1,
         );
         raycaster.setFromCamera(ndc, camera);
+        // after punching through a wall the way ahead is open again;
+        // staying in fly mode there means trackpad-speed crawling
+        // across the whole room. Re-inflate the target to the next
+        // surface so OrbitControls' fast zoom-to-cursor resumes, and
+        // fly mode re-engages only on the next close approach.
+        const ahead = raycaster
+          .intersectObjects(scene.children, true)
+          .find((h) => h.distance > 0.05);
+        const clear = ahead ? ahead.distance : Infinity;
+        if (clear > 2.5) {
+          c.target
+            .copy(camera.position)
+            .addScaledVector(raycaster.ray.direction, Math.min(clear, 8));
+          c.update();
+          return; // let OrbitControls handle this tick at full speed
+        }
         camera.position.add(
           raycaster.ray.direction.clone().multiplyScalar(speed),
         );
