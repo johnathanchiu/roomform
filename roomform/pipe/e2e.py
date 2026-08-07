@@ -180,11 +180,25 @@ def main() -> None:
             cloud.export(lift_src)
             emit("lifting.thinned", stride=stride)
         data = StageApp.read_input(lift_src)
-        app_ctx = modal.enable_output(), lifting_app.run()
-        app_ctx[0].__enter__()
-        app_ctx[1].__enter__()
-        lifting_handle = lift.spawn(data)
-        emit("lifting.spawned")
+        # prefer a deployed app (containers persist between runs ->
+        # warm model cache); fall back to an ephemeral app otherwise
+        deployed = None
+        try:
+            deployed = modal.Function.from_name(
+                f"roomform-lifting-{args.lifter}", lift.info.function_name
+            )
+            deployed.hydrate()
+        except modal.exception.NotFoundError:
+            deployed = None
+        if deployed is not None:
+            lifting_handle = deployed.spawn(data)
+            emit("lifting.spawned", app="deployed")
+        else:
+            app_ctx = modal.enable_output(), lifting_app.run()
+            app_ctx[0].__enter__()
+            app_ctx[1].__enter__()
+            lifting_handle = lift.spawn(data)
+            emit("lifting.spawned", app="ephemeral")
 
     try:
         if args.sequential and lifting_handle is not None:
@@ -223,6 +237,15 @@ def main() -> None:
     emit("glb.done", artifact=os.path.join(out_dir, "scene.glb"))
     meshes = export_object_meshes(out_dir)
     emit("objects.done", meshes=len(meshes))
+    emit(
+        "reconstruction.skipped",
+        reason=(
+            "no RGB payloads in a bare point-cloud scan; objects stay "
+            "segmented point clouds (image-based reconstruction needs "
+            "registered frames, then roomform.pipe.objects."
+            "reconstruction.fit gates and places the meshes)"
+        ),
+    )
     flagged = sum(1 for o in doc.objects if o.qa.leaking)
     emit(
         "scene.done",

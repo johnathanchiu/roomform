@@ -201,13 +201,23 @@ def segment(point_cloud_bytes: bytes) -> bytes:
         "offset": torch.tensor([len(keep)], device="cuda"),
     }
 
-    ckpt = torch.load(
-        hf_hub_download(CKPT_REPO, CKPT_FILE), map_location="cpu"
-    )
-    model = build_model(_MODEL).cuda().eval()
-    model.load_state_dict(
-        {k.removeprefix("module."): v for k, v in ckpt["state_dict"].items()}
-    )
+    # container-level cache: loading PTv3 costs ~10s and containers
+    # linger between calls — pay it once per container, not per request
+    global _MODEL_CACHE
+    try:
+        model = _MODEL_CACHE
+    except NameError:
+        ckpt = torch.load(
+            hf_hub_download(CKPT_REPO, CKPT_FILE), map_location="cpu"
+        )
+        model = build_model(_MODEL).cuda().eval()
+        model.load_state_dict(
+            {
+                k.removeprefix("module."): v
+                for k, v in ckpt["state_dict"].items()
+            }
+        )
+        _MODEL_CACHE = model
     with torch.inference_mode():
         label = model(data)["seg_logits"].argmax(1)
 
@@ -239,15 +249,42 @@ MAX_OBJECT_XY_M = 4.0  # larger than any furniture -> label chain, not object
 MAX_OBJECT_Z_M = 3.2
 
 
+def _footprint_axis(xy: np.ndarray) -> np.ndarray:
+    """Min-area-rectangle yaw via rotating calipers on the 2D hull.
+
+    Footprint PCA points along whatever direction the *scan coverage*
+    is longest — on partially observed furniture that is routinely
+    ~30 degrees off the true edges, which tilts the box, inflates its
+    extents, and poisons every downstream consumer of heading. The
+    minimum-area enclosing rectangle tracks the physical edges.
+    """
+    from scipy.spatial import ConvexHull, QhullError
+
+    try:
+        hull = xy[ConvexHull(xy).vertices]
+    except QhullError:
+        return np.array([1.0, 0.0])
+    edges = np.diff(np.vstack([hull, hull[:1]]), axis=0)
+    angles = np.unique(np.mod(np.arctan2(edges[:, 1], edges[:, 0]), np.pi / 2))
+    best_a, best_area = 0.0, np.inf
+    for a in angles:
+        c, s = np.cos(a), np.sin(a)
+        r = hull @ np.array([[c, -s], [s, c]])
+        area = np.ptp(r[:, 0]) * np.ptp(r[:, 1])
+        if area < best_area:
+            best_a, best_area = a, area
+    return np.array([np.cos(best_a), np.sin(best_a)])
+
+
 def _box(cls: str, pts: np.ndarray, shift) -> SceneObject | None:
-    """Oriented box: footprint-PCA yaw, extents from robust (1-99th
+    """Oriented box: min-area-rect yaw, extents from robust (1-99th
     percentile) rotated bounds — min/max lets a handful of stray
     mislabeled points stretch a cabinet across the room. Clusters at
     architectural scale are rejected outright."""
     xy = pts[:, :2]
     mean = xy.mean(0)
     centered = xy - mean
-    axis = np.linalg.eigh(np.cov(centered.T))[1][:, -1]
+    axis = _footprint_axis(centered)
     perp = np.array([-axis[1], axis[0]])
     u, t = centered @ axis, centered @ perp
     u0, u1 = np.percentile(u, [1, 99])
