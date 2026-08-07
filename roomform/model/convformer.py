@@ -165,10 +165,12 @@ class PatchGraphConvFormer(nn.Module):
         valid1, valid2, valid3 = (
             self._mask(valid0, factor) for factor in (2, 4, 8)
         )
-        x0 = self.enc0(self.stem(x), valid0)
-        x1 = self.enc1(self.down1(x0), valid1)
-        x2 = self.enc2(self.down2(x1), valid2)
-        x3 = self.down3(x2)
+        # explicit annotations: nn.Module.__call__ returns Any in torch's
+        # stubs, which would strip IDE type info from every chained op
+        x0: torch.Tensor = self.enc0(self.stem(x), valid0)
+        x1: torch.Tensor = self.enc1(self.down1(x0), valid1)
+        x2: torch.Tensor = self.enc2(self.down2(x1), valid2)
+        x3: torch.Tensor = self.down3(x2)
         shape = tuple(x3.shape[-3:])
         tokens = x3.flatten(2).transpose(1, 2)
         valid_tokens = valid3[:, 0].flatten(1) if valid3 is not None else None
@@ -186,9 +188,9 @@ class PatchGraphConvFormer(nn.Module):
         for block in self.attention_out:
             tokens = block(tokens, valid_tokens)
         x3 = tokens.transpose(1, 2).reshape(len(tokens), -1, *shape)
-        y2 = self.dec2(self.up2(x3) + x2, valid2)
-        y1 = self.dec1(self.up1(y2) + x1, valid1)
-        y0 = self.dec0(self.up0(y1) + x0, valid0)
+        y2: torch.Tensor = self.dec2(self.up2(x3) + x2, valid2)
+        y1: torch.Tensor = self.dec1(self.up1(y2) + x1, valid1)
+        y0: torch.Tensor = self.dec0(self.up0(y1) + x0, valid0)
         result = [self.node_head(y0), self.edge_head(y0)]
         if self.offset_head is not None:
             # Offset is in voxel widths from the cell center; staying inside

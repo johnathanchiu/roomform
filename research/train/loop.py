@@ -2,10 +2,8 @@
 
 Deliberately plain: AdamW + cosine, checkpoint (model + optimizer +
 epoch + the full TrainConfig as JSON) every val, atomic writes. The
-dataset interface is any iterable yielding dicts with keys
-``input`` [C,X,Y,Z] f32, ``node_gt`` [3,X,Y,Z] bool,
-``edge_gt`` [13,X,Y,Z] bool, ``observed`` [X,Y,Z] bool —
-research/datagen produces these; the loop doesn't care from where.
+dataset interface is any iterable of ``TrainSample`` — the loop
+doesn't care where samples come from.
 """
 
 from __future__ import annotations
@@ -14,6 +12,7 @@ import json
 import os
 import time
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -21,6 +20,32 @@ import torch
 from research.train.config import TrainConfig
 from research.train.losses import total_loss
 from roomform.eval import evaluate
+
+
+@dataclass
+class TrainSample:
+    """One training example (numpy, converted to tensors in the loop)."""
+
+    input: np.ndarray  # [C,X,Y,Z] f32
+    node_gt: np.ndarray  # [3,X,Y,Z] bool
+    edge_gt: np.ndarray  # [13,X,Y,Z] bool
+    observed: np.ndarray  # [X,Y,Z] bool
+
+
+@dataclass
+class ValSummary:
+    """Mean F1s over the validation set at one epoch."""
+
+    shell: float
+    occluded_shell: float
+    connectivity: float
+
+    def as_log(self) -> dict:
+        return {
+            "shell": self.shell,
+            "occluded_shell": self.occluded_shell,
+            "connectivity": self.connectivity,
+        }
 
 
 def _log(path: str, rec: dict) -> None:
@@ -51,11 +76,11 @@ def save_checkpoint(
 
 def train(
     cfg: TrainConfig,
-    train_data: Iterable[dict],
-    val_data: list[dict],
+    train_data: Iterable[TrainSample],
+    val_data: list[TrainSample],
     out_dir: str,
     device: str = "cuda",
-) -> dict:
+) -> ValSummary | None:
     os.makedirs(out_dir, exist_ok=True)
     log_path = os.path.join(out_dir, "train_log.jsonl")
     torch.manual_seed(cfg.seed)
@@ -68,14 +93,14 @@ def train(
         opt, T_max=cfg.epochs, eta_min=cfg.lr * cfg.lr_min_factor
     )
 
-    last_val: dict = {}
+    last_val: ValSummary | None = None
     for epoch in range(cfg.epochs):
         model.train()
         t0, losses = time.time(), []
         for item in train_data:
-            x = torch.as_tensor(item["input"])[None].to(device)
-            ngt = torch.as_tensor(item["node_gt"])[None].to(device)
-            egt = torch.as_tensor(item["edge_gt"])[None].to(device)
+            x = torch.as_tensor(item.input)[None].to(device)
+            ngt = torch.as_tensor(item.node_gt)[None].to(device)
+            egt = torch.as_tensor(item.edge_gt)[None].to(device)
             node_logits, edge_logits = model(x)[:2]
             loss, _parts = total_loss(
                 node_logits,
@@ -107,21 +132,26 @@ def train(
             reports = []
             with torch.no_grad():
                 for item in val_data:
-                    x = torch.as_tensor(item["input"])[None].to(device)
+                    x = torch.as_tensor(item.input)[None].to(device)
                     node_logits, edge_logits = model(x)[:2]
                     reports.append(
                         evaluate(
                             torch.sigmoid(node_logits)[0].cpu().numpy(),
                             torch.sigmoid(edge_logits)[0].cpu().numpy(),
-                            np.asarray(item["node_gt"], bool),
-                            np.asarray(item["edge_gt"], bool),
-                            np.asarray(item["observed"], bool),
+                            np.asarray(item.node_gt, bool),
+                            np.asarray(item.edge_gt, bool),
+                            np.asarray(item.observed, bool),
                         )
                     )
-            last_val = {
+
+            means = {
                 key: round(float(np.mean([r[key].f1 for r in reports])), 4)
                 for key in ("shell", "occluded_shell", "connectivity")
             }
-            _log(log_path, {"event": "val", "epoch": epoch, **last_val})
+            last_val = ValSummary(**means)
+            _log(
+                log_path,
+                {"event": "val", "epoch": epoch, **last_val.as_log()},
+            )
             save_checkpoint(out_dir, model, opt, epoch, cfg)
     return last_val
