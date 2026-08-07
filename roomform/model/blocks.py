@@ -58,7 +58,9 @@ class ResidualBlock(nn.Module):
     def forward(
         self, x: torch.Tensor, valid: torch.Tensor | None = None
     ) -> torch.Tensor:
-        y = self.conv1(F.gelu(self.norm1(x)))
+        # explicit annotation: nn.Module.__call__ returns Any in torch's
+        # stubs, which strips IDE type info from chained tensor ops
+        y: torch.Tensor = self.conv1(F.gelu(self.norm1(x)))
         if valid is not None:
             y = y * valid.to(y.dtype)
         y = self.conv2(F.gelu(self.norm2(y)))
@@ -82,10 +84,9 @@ class AttentionBlock(nn.Module):
         self, x: torch.Tensor, valid_tokens: torch.Tensor | None = None
     ) -> torch.Tensor:
         b, n, d = x.shape
-        q, k, v = (
-            self.qkv(self.norm1(x))
-            .reshape(b, n, 3, self.heads, d // self.heads)
-            .permute(2, 0, 3, 1, 4)
+        qkv: torch.Tensor = self.qkv(self.norm1(x))
+        q, k, v = qkv.reshape(b, n, 3, self.heads, d // self.heads).permute(
+            2, 0, 3, 1, 4
         )
         # A key mask is enough for attention; invalid query rows are cleared
         # after both residual branches.  This avoids all-masked softmax rows
@@ -120,7 +121,7 @@ class ConvRefine(nn.Module):
     def forward(
         self, x: torch.Tensor, valid_grid: torch.Tensor | None = None
     ) -> torch.Tensor:
-        y = x
+        y: torch.Tensor = x
         for layer in self.body:
             y = layer(y)
             # A two-layer convolution can otherwise write into padding after
