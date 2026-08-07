@@ -665,6 +665,20 @@ export default function SplatPreview({
 }) {
   const [ready, setReady] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  // OrbitControls fires start+end synchronously for EVERY wheel tick;
+  // React batches the pair into a no-op, so scroll-zoom never engaged
+  // the reduced-dpr fast path. Debouncing the end keeps a wheel burst
+  // in one navigation span (one dpr drop, one restore at rest).
+  const navRest = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const handleNavStart = useCallback(() => {
+    clearTimeout(navRest.current);
+    setIsNavigating(true);
+  }, []);
+  const handleNavEnd = useCallback(() => {
+    clearTimeout(navRest.current);
+    navRest.current = setTimeout(() => setIsNavigating(false), 250);
+  }, []);
+  useEffect(() => () => clearTimeout(navRest.current), []);
   const [hoveredId, setHoveredId] = useState<string>();
   useCursor(Boolean(hoveredId));
   const handleLoad = useCallback(() => setReady(true), []);
@@ -902,8 +916,8 @@ export default function SplatPreview({
           maxDistance={50}
           minPolarAngle={0.2}
           maxPolarAngle={2.6}
-          onStart={() => setIsNavigating(true)}
-          onEnd={() => setIsNavigating(false)}
+          onStart={handleNavStart}
+          onEnd={handleNavEnd}
         />
       </Canvas>
       {!ready && (
