@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import pathlib
 
-from roomform.contracts import SceneObject
+from roomform.contracts import ObjectQA, SceneObject
 from roomform.inference.modal_adapter import StageApp, torch_image
 
 UNIDET3D_COMMIT = "940a730a09711b0bf266fd972504da29a83b91f6"
@@ -276,7 +276,7 @@ def lift_from_detections(
                 size=tuple(d["size"]),
                 heading=d["heading"],
                 source="unidet3d",
-                qa={"score": d["score"]},
+                qa=ObjectQA(score=d["score"]),
             )
         )
     return out

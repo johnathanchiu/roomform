@@ -119,7 +119,7 @@ def train(
                         )
                     )
             last_val = {
-                key: round(float(np.mean([r[key]["f1"] for r in reports])), 4)
+                key: round(float(np.mean([r[key].f1 for r in reports])), 4)
                 for key in ("shell", "occluded_shell", "connectivity")
             }
             _log(log_path, {"event": "val", "epoch": epoch, **last_val})

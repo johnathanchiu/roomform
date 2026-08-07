@@ -47,4 +47,4 @@ def test_eval_metrics_shapes():
     obs = rng.random((8, 8, 8)) > 0.5
     out = evaluate(node, edge, ngt, egt, obs)
     for key in ("shell", "occluded_shell", "connectivity", "wall"):
-        assert 0.0 <= out[key]["f1"] <= 1.0
+        assert 0.0 <= out[key].f1 <= 1.0

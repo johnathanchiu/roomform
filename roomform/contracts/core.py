@@ -98,6 +98,7 @@ class ObjectQA(BaseModel):
 
     wall_leak_pts: int | None = None  # predicted-wall pts inside the box
     floor_support_m: float | None = None  # box bottom minus shell floor_z
+    score: float | None = None  # detector confidence, when it reports one
 
     @property
     def leaking(self) -> bool:

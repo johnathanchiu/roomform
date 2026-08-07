@@ -15,20 +15,44 @@ operating points are part of the reported result, never implicit.
 from __future__ import annotations
 
 import numpy as np
+from pydantic import BaseModel
 
 CLASSES = ("wall", "floor", "ceiling")
 
 
-def _f1(pred: np.ndarray, gt: np.ndarray) -> dict[str, float]:
+class F1(BaseModel):
+    precision: float
+    recall: float
+    f1: float
+
+
+class Thresholds(BaseModel):
+    node: float
+    edge: float
+
+
+class EvalResult(BaseModel):
+    shell: F1
+    occluded_shell: F1
+    wall: F1
+    floor: F1
+    ceiling: F1
+    connectivity: F1
+    thresholds: Thresholds
+
+    def __getitem__(self, key: str) -> F1:  # metric-by-name access
+        value = getattr(self, key)
+        if not isinstance(value, F1):
+            raise KeyError(key)
+        return value
+
+
+def _f1(pred: np.ndarray, gt: np.ndarray) -> F1:
     tp = float((pred & gt).sum())
     p = tp / max(float(pred.sum()), 1.0)
     r = tp / max(float(gt.sum()), 1.0)
     f1 = 2 * p * r / max(p + r, 1e-9)
-    return {
-        "precision": round(p, 4),
-        "recall": round(r, 4),
-        "f1": round(f1, 4),
-    }
+    return F1(precision=round(p, 4), recall=round(r, 4), f1=round(f1, 4))
 
 
 def evaluate(
@@ -39,19 +63,20 @@ def evaluate(
     observed: np.ndarray,  # [X,Y,Z] bool — evidence cells
     node_threshold: float = 0.5,
     edge_threshold: float = 0.5,
-) -> dict:
+) -> EvalResult:
     node_pred = node_probs > node_threshold
     any_pred = node_pred.any(axis=0)
     any_gt = node_gt.any(axis=0)
 
-    out: dict = {"shell": _f1(any_pred, any_gt)}
-    occluded = any_gt & ~observed
-    out["occluded_shell"] = _f1(any_pred & ~observed, occluded)
-    for k, name in enumerate(CLASSES):
-        out[name] = _f1(node_pred[k], node_gt[k])
-
     edge_pred = edge_probs > edge_threshold
     edge_mask = any_gt[None]  # edges scored where source is structure
-    out["connectivity"] = _f1(edge_pred & edge_mask, edge_gt & edge_mask)
-    out["thresholds"] = {"node": node_threshold, "edge": edge_threshold}
-    return out
+    per_class = {
+        name: _f1(node_pred[k], node_gt[k]) for k, name in enumerate(CLASSES)
+    }
+    return EvalResult(
+        shell=_f1(any_pred, any_gt),
+        occluded_shell=_f1(any_pred & ~observed, any_gt & ~observed),
+        connectivity=_f1(edge_pred & edge_mask, edge_gt & edge_mask),
+        thresholds=Thresholds(node=node_threshold, edge=edge_threshold),
+        **per_class,
+    )
