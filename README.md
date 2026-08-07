@@ -4,7 +4,7 @@ Parses point cloud indoor scans into structured, editable
 scenes: room boundaries (walls, floors, ceilings — inferred
 through occlusion) + objects out.
 
-![roomform boundary prediction on a real apartment scan](docs/media/pipeline.gif)
+![roomform boundary prediction on a real apartment scan](assets/media/pipeline.gif)
 
 ## Docs
 
@@ -124,7 +124,7 @@ artifacts/<scene>/evidence.npz`.
 
 | objects | training |
 |---|---|
-| ![object detection](docs/media/objects.gif) | ![training progression](docs/media/training.gif) |
+| ![object detection](assets/media/objects.gif) | ![training progression](assets/media/training.gif) |
 
 ## Tests and lint
 
