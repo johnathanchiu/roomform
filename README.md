@@ -8,12 +8,10 @@ through occlusion) + objects out.
 
 ## Docs
 
-- [Data contracts](docs/data-contracts.md) — the pipeline spine:
-  `ScanInput -> EvidenceGrid -> PatchGraph -> SceneDocument`
-- [How the model works](roomform/model/README.md) — the patch-graph
-  ConvFormer: representation, architecture, measured results
-- [Research](research/README.md) — training, experiments, and the
-  parity rules
+- [Data contracts](docs/data-contracts.md)
+- [Model](docs/model.md)
+- [Research](docs/research.md)
+- [Changelog](CHANGELOG.md)
 
 ## Setup
 
