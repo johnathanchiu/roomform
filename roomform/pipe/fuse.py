@@ -12,7 +12,7 @@ import os
 
 import numpy as np
 
-from roomform.contracts import PatchGraph, SceneDocument, SceneObject
+from roomform.contracts import ObjectQA, PatchGraph, SceneDocument, SceneObject
 
 
 def _box_mask(
@@ -34,6 +34,13 @@ def fuse(
 ) -> SceneDocument:
     d = np.load(shell.npz_path)
     node = d["node_probs"] > shell.node_threshold
+    if "agent_fill" in d.files:
+        fill = d["agent_fill"].astype(bool)
+        if fill.shape != node.shape:
+            raise ValueError(
+                f"agent_fill shape {fill.shape} does not match {node.shape}"
+            )
+        node |= fill
     wall_pts = np.argwhere(node[0]) * shell.vox_m
     floor_pts = np.argwhere(node[1]) * shell.vox_m
     floor_z = (
@@ -50,14 +57,14 @@ def fuse(
             if len(wall_pts)
             else 0
         )
-        obj.qa = {
-            "wall_leak_pts": leak,
-            "floor_support_m": (
+        obj.qa = ObjectQA(
+            wall_leak_pts=leak,
+            floor_support_m=(
                 round(obj.center[2] - obj.size[2] / 2 - floor_z, 3)
                 if floor_z is not None
                 else None
             ),
-        }
+        )
 
     doc = SceneDocument(
         source_scan=os.path.basename(source_scan),

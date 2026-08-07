@@ -8,3 +8,4 @@ artifacts/
 .venv/
 
 checkpoints/
+AGENTS_CHANNEL.md

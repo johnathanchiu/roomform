@@ -24,7 +24,7 @@ import time
 
 from roomform.pipe.evidence.build import build_evidence
 from roomform.pipe.fuse import fuse
-from roomform.pipe.lifting.spatiallm import lift_from_proposals
+from roomform.pipe.objects.lifting.spatiallm import lift_from_proposals
 
 T0 = time.time()
 
@@ -150,11 +150,17 @@ def main() -> None:
         from roomform.inference.modal_adapter import StageApp
 
         if args.lifter == "pointlabel":
-            from roomform.pipe.lifting.pointlabel import app as lifting_app
-            from roomform.pipe.lifting.pointlabel import segment as lift
+            from roomform.pipe.objects.lifting.pointlabel import (
+                app as lifting_app,
+            )
+            from roomform.pipe.objects.lifting.pointlabel import (
+                segment as lift,
+            )
         else:
-            from roomform.pipe.lifting.modal_app import app as lifting_app
-            from roomform.pipe.lifting.modal_app import lift
+            from roomform.pipe.objects.lifting.modal_app import (
+                app as lifting_app,
+            )
+            from roomform.pipe.objects.lifting.modal_app import lift
 
         data = StageApp.read_input(args.scan)
         app_ctx = modal.enable_output(), lifting_app.run()
@@ -179,7 +185,7 @@ def main() -> None:
             app_ctx[0].__exit__(None, None, None)
 
     if proposals_path.endswith(".npz"):
-        from roomform.pipe.lifting.pointlabel import lift_from_labels
+        from roomform.pipe.objects.lifting.pointlabel import lift_from_labels
 
         objects = lift_from_labels(proposals_path, evidence.origin)
     else:
@@ -200,7 +206,7 @@ def main() -> None:
     )
     emit("glb.done", artifact=os.path.join(out_dir, "scene.glb"))
     flagged = sum(
-        1 for o in doc.objects if (o.qa.get("wall_leak_pts") or 0) > 50
+        1 for o in doc.objects if o.qa.leaking
     )
     emit(
         "scene.done",

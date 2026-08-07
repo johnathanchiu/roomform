@@ -11,9 +11,9 @@ License: Pointcept code and the released PTv3 checkpoints are MIT
 the checkpoint was trained on ScanNet v2, whose *data* terms of use are
 non-commercial — flag before shipping this backend in a paid product.
 
-  modal run -m roomform.pipe.lifting.pointlabel \
+  modal run -m roomform.pipe.objects.lifting.pointlabel \
       --point-cloud scan.ply --out labels.npz
-  python -m roomform.pipe.lifting.pointlabel labels.npz
+  python -m roomform.pipe.objects.lifting.pointlabel labels.npz
 """
 
 from __future__ import annotations

@@ -17,7 +17,7 @@ into the grid frame (grid = raw - frame_shift) like the SpatialLM
 parser does. ``up="y"`` rotates a y-up scan to z-up for detection and
 rotates boxes back, so outputs always stay in the input frame.
 
-  modal run -m roomform.pipe.lifting.unidet3d \
+  modal run -m roomform.pipe.objects.lifting.unidet3d \
       --point-cloud scan.ply --out detections.json --up y
 """
 

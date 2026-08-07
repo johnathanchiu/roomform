@@ -8,7 +8,7 @@ import pytest
 pytest.importorskip("scipy")
 pytest.importorskip("modal")
 
-from roomform.pipe.lifting.pointlabel import CLASSES, lift_from_labels
+from roomform.pipe.objects.lifting.pointlabel import CLASSES, lift_from_labels
 
 
 def _block(center, size, yaw, step=0.04):

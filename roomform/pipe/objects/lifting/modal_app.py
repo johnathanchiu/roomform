@@ -2,11 +2,11 @@
 
 Runs SpatialLM 1.1 (Qwen-0.5B, ARKitScenes-SFT) on a scene point cloud
 and returns the structured-language layout ("Bbox(...)" lines), which
-``roomform.pipe.lifting.spatiallm.lift_from_proposals`` parses into
+``roomform.pipe.objects.lifting.spatiallm.lift_from_proposals`` parses into
 SceneObjects. Only the image layers and the function body live here —
 app/GPU/file conventions come from ``roomform.inference.modal_adapter``.
 
-  modal run -m roomform.pipe.lifting.modal_app \
+  modal run -m roomform.pipe.objects.lifting.modal_app \
       --point-cloud scan.ply --out proposals.txt
 """
 
