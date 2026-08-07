@@ -1,6 +1,6 @@
 """Tiny dev server for the scene viewer.
 
-  uv run python viewer/serve.py [--artifacts artifacts] [--port 8790]
+  uv run python viewer/debug/serve.py [--artifacts artifacts] [--port 8790]
 
 Serves viewer.html at /, the artifacts directory at /artifacts/, and a
 scene listing at /api/scenes (directories containing scene.json).
@@ -14,7 +14,7 @@ import json
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
-VIEWER = Path(__file__).resolve().parent / "viewer.html"
+VIEWER = Path(__file__).resolve().parent / "index.html"
 
 
 def make_handler(artifacts: Path):

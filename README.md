@@ -53,7 +53,7 @@ exports).
 
 A pre-baked result ships in [samples/](samples/README.md):
 
-    uv run python viewer/serve.py --artifacts samples   # :8790
+    uv run python viewer/debug/serve.py --artifacts samples   # :8790
 
 `samples/README.md` also lists public-domain scans to download for
 full pipeline runs.
@@ -101,7 +101,7 @@ Two surfaces, two jobs:
 
 **Debug viewer** — inspect what the pipeline produced:
 
-    uv run python viewer/serve.py          # http://127.0.0.1:8790
+    uv run python viewer/debug/serve.py          # http://127.0.0.1:8790
 
 Single-file three.js viewer over `artifacts/`: RGB cloud, boundary
 class layers, voxel evidence, detection boxes — plus curation for QA

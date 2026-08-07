@@ -73,7 +73,7 @@ uv sync --extra model --extra modal --extra dev   # extras are additive per
 uv run pytest tests/ -q
 uv run ruff format . && uv run ruff check .
 uv run python -m roomform.pipe.e2e SCAN.ply       # full pipeline
-uv run python viewer/serve.py                     # editor on :8790
+uv run python viewer/debug/serve.py                     # editor on :8790
 ```
 
 Credentials: `uv run modal setup` for lifting; `FAL_KEY` in `.env` for
