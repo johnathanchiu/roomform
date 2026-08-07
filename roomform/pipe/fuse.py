@@ -70,6 +70,18 @@ def fuse(
             ),
         )
 
+    # Wall-band mislabels: a segmentation chain along a wall becomes a
+    # multi-square-meter "cabinet" buried in the boundary. Real wall-
+    # adjacent furniture leaks a few hundred points on a small
+    # footprint; label chains leak >800 on >2 m^2 — drop those.
+    objects = [
+        o
+        for o in objects
+        if not (
+            (o.qa.wall_leak_pts or 0) > 800 and o.size[0] * o.size[1] > 2.0
+        )
+    ]
+
     doc = SceneDocument(
         source_scan=os.path.basename(source_scan),
         frame_shift=frame_shift,
