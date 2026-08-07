@@ -4,13 +4,6 @@ Parses indoor point cloud scans into structured, editable scenes.
 
 ![roomform boundary prediction on a real apartment scan](assets/media/pipeline.gif)
 
-## Try it (no setup)
-
-A pre-baked result ships in [samples/](samples/README.md):
-
-    uv sync
-    uv run python viewer/debug/serve.py --artifacts samples   # :8790
-
 ## Setup
 
 Requires [uv](https://docs.astral.sh/uv/):
@@ -60,6 +53,14 @@ pipeline produced: RGB cloud, boundary layers, evidence, boxes.
     uv run python viewer/editor/serve.py
 
 `scene.glb` also opens in any glTF viewer.
+
+## Sample result
+
+A pre-baked scene ships in [samples/](samples/README.md) for browsing
+the output format without running anything; `samples/README.md` lists
+public-domain scans to download for real runs:
+
+    uv run python viewer/debug/serve.py --artifacts samples   # :8790
 
 ## Known limitations
 
