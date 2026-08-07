@@ -17,6 +17,7 @@ import {
   MeshNormalMaterial,
   MeshStandardMaterial,
   Quaternion,
+  Vector2,
   Vector3,
 } from "three";
 import type { WebGLRenderer } from "three";
@@ -29,6 +30,46 @@ import { objectIntersectsWall } from "./wall-contact";
 import type { WallSegment } from "./wall-contact";
 
 const roomTarget = new Vector3(2.1, 0.1, -0.7);
+
+function CursorPivot() {
+  // Orbit should pivot around the surface under the cursor, not
+  // wherever the last zoom left the target (Fusion-style). On a
+  // plain left-button press we raycast the scene once and re-aim the
+  // default controls at the hit before the rotate begins.
+  const { camera, controls, gl, raycaster, scene } = useThree();
+  useEffect(() => {
+    const el = gl.domElement;
+    const onDown = (event: PointerEvent) => {
+      const c = controls as unknown as {
+        target: Vector3;
+        update: () => void;
+      } | null;
+      if (!c || event.button !== 0 || event.metaKey || event.ctrlKey) return;
+      const rect = el.getBoundingClientRect();
+      const ndc = new Vector2(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(ndc, camera);
+      raycaster.params.Points = { threshold: 0.06 };
+      const hit = raycaster
+        .intersectObjects(scene.children, true)
+        .find((h) => h.distance > 0.05);
+      if (hit) {
+        c.target.copy(hit.point);
+        c.update();
+      }
+      // scripted-check handle (mirrors window.__camera)
+      (window as unknown as { __pivot?: unknown }).__pivot = {
+        hit: hit ? hit.point.toArray() : null,
+        target: c.target.toArray(),
+      };
+    };
+    el.addEventListener("pointerdown", onDown, { capture: true });
+    return () => el.removeEventListener("pointerdown", onDown, { capture: true });
+  }, [camera, controls, gl, raycaster, scene]);
+  return null;
+}
 
 function InitialCamera({ target = roomTarget }: { target?: Vector3 }) {
   const { camera, invalidate } = useThree();
@@ -907,6 +948,7 @@ export default function SplatPreview({
           )}
         </Suspense>
         <InitialCamera target={activeTarget} />
+        <CursorPivot />
         <ViewBasisReporter onChange={onViewBasisChange} />
         <OrbitControls
           makeDefault
