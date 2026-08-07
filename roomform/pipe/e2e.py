@@ -22,7 +22,7 @@ import json
 import os
 import time
 
-from roomform.export import export_glb
+from roomform.export import export_glb, export_object_meshes
 from roomform.pipe.evidence.build import build_evidence
 from roomform.pipe.evidence.orient import ensure_z_up
 from roomform.pipe.fuse import fuse
@@ -162,7 +162,24 @@ def main() -> None:
             )
             from roomform.pipe.objects.lifting.spatiallm import lift
 
-        data = StageApp.read_input(args.scan)
+        lift_src = args.scan
+        if os.path.getsize(lift_src) > 100 * 1024 * 1024:
+            # the lifter voxel-coarsens on arrival anyway — thin huge
+            # scans below the Modal payload cap instead of failing
+            import trimesh
+
+            m = trimesh.load(lift_src)
+            stride = max(
+                1, int(os.path.getsize(lift_src) / (80 * 1024 * 1024))
+            )
+            cloud = trimesh.PointCloud(m.vertices[::stride])
+            colors = getattr(getattr(m, "visual", None), "vertex_colors", None)
+            if colors is not None and len(colors) == len(m.vertices):
+                cloud.colors = colors[::stride]
+            lift_src = os.path.join(out_dir, "lift-input.ply")
+            cloud.export(lift_src)
+            emit("lifting.thinned", stride=stride)
+        data = StageApp.read_input(lift_src)
         app_ctx = modal.enable_output(), lifting_app.run()
         app_ctx[0].__enter__()
         app_ctx[1].__enter__()
@@ -204,6 +221,8 @@ def main() -> None:
         os.path.join(out_dir, "evidence.npz"),
     )
     emit("glb.done", artifact=os.path.join(out_dir, "scene.glb"))
+    meshes = export_object_meshes(out_dir)
+    emit("objects.done", meshes=len(meshes))
     flagged = sum(1 for o in doc.objects if o.qa.leaking)
     emit(
         "scene.done",
