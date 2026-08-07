@@ -75,6 +75,7 @@ class PatchGraph(BaseModel):
 
     Dense storage (npz) referenced here; this model is the header.
       node_probs [3,X,Y,Z] f16   wall/floor/ceiling probabilities
+      agent_fill [3,X,Y,Z] u8    optional VLM-approved additive fills
       edge_probs [13,X,Y,Z] f16  forward-edge connectivity: the 13
         non-duplicate offsets of the 26-neighborhood, fixed order
         documented in docs/data-contracts.md (edge k at cell c connects
@@ -92,6 +93,17 @@ class PatchGraph(BaseModel):
     model_id: str = ""
 
 
+class ObjectQA(BaseModel):
+    """Fusion-time quality checks for one object."""
+
+    wall_leak_pts: int | None = None  # predicted-wall pts inside the box
+    floor_support_m: float | None = None  # box bottom minus shell floor_z
+
+    @property
+    def leaking(self) -> bool:
+        return (self.wall_leak_pts or 0) > 50
+
+
 class SceneObject(BaseModel):
     """One detected/reconstructed object in the scene."""
 
@@ -101,7 +113,7 @@ class SceneObject(BaseModel):
     heading: float  # z-yaw, radians
     source: str = "spatiallm"  # spatiallm | sam3d | ...
     mesh_path: str | None = None  # aligned mesh if reconstructed
-    qa: dict = Field(default_factory=dict)  # wall_leak_pts, floor_support_m
+    qa: ObjectQA = Field(default_factory=lambda: ObjectQA())
 
 
 class SceneDocument(BaseModel):

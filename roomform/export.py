@@ -29,7 +29,16 @@ import os
 import numpy as np
 import trimesh
 
-from roomform.contracts import SceneDocument
+from roomform.contracts import SceneDocument, SceneObject
+from roomform.contracts.editor import (
+    FixtureAssets,
+    FixtureEntry,
+    FixturesIndex,
+    FixtureStats,
+    SceneProgram,
+    SplatAnalysis,
+    SplatObjectProposal,
+)
 
 MEASURED = [148, 149, 153, 255]  # gray = measured (editor convention)
 INFERRED = [245, 158, 11, 255]  # amber = inferred fill
@@ -38,6 +47,21 @@ CLASS_COLORS = {
     "floor": [120, 200, 140, 255],
     "ceiling": [190, 190, 120, 255],
 }
+
+
+def _boundary_nodes(patchgraph, threshold: float) -> np.ndarray:
+    """Threshold model output and merge provenance-separated agent fills."""
+    node = patchgraph["node_probs"] > threshold
+    if "agent_fill" in patchgraph.files:
+        # agent_fill is a class-agnostic [X,Y,Z] mask; approved fills
+        # count as wall boundary for display purposes
+        fill = patchgraph["agent_fill"].astype(bool)
+        if fill.shape != node.shape[1:]:
+            raise ValueError(
+                f"agent_fill shape {fill.shape} != grid {node.shape[1:]}"
+            )
+        node[0] |= fill
+    return node
 
 
 # ---------------------------------------------------------------- glb ----
@@ -103,7 +127,7 @@ def export_glb(
         )
 
     d = np.load(doc.shell.npz_path)
-    node = d["node_probs"] > doc.shell.node_threshold
+    node = _boundary_nodes(d, doc.shell.node_threshold)
     if not include_shell:
         node = node & False
     for k, (name, color) in enumerate(CLASS_COLORS.items()):
@@ -123,8 +147,11 @@ def export_glb(
         # holes in a solid surface far more than in a point cloud
         from roomform.planes import planar_shell
 
+        node_probs = d["node_probs"].astype(np.float32)
+        if "agent_fill" in d.files:
+            node_probs = np.maximum(node_probs, d["agent_fill"])
         planar = planar_shell(
-            d["node_probs"].astype(np.float32),
+            node_probs,
             vox,
             offsets=d["offsets"].astype(np.float32)
             if "offsets" in d.files
@@ -155,9 +182,7 @@ def export_glb(
     ok, flagged = [], []
     for obj in doc.objects:
         frame = _box_outline(obj.center, obj.size, obj.heading)
-        (flagged if (obj.qa.get("wall_leak_pts") or 0) > 50 else ok).append(
-            frame
-        )
+        (flagged if obj.qa.leaking else ok).append(frame)
     if ok:
         scene.add_geometry(
             trimesh.PointCloud(np.concatenate(ok), colors=[230, 160, 60, 255]),
@@ -244,16 +269,16 @@ def export_fixtures(
     scene_dir: str, fixtures: str, scene_id: str, title: str
 ) -> str:
     with open(os.path.join(scene_dir, "scene.json")) as fh:
-        doc = json.load(fh)
+        doc = SceneDocument(**json.load(fh))
     ev = np.load(os.path.join(scene_dir, "evidence.npz"))
     pg = np.load(os.path.join(scene_dir, "patchgraph.npz"))
-    vox = doc["shell"]["vox_m"]
+    vox = doc.shell.vox_m
     out = os.path.join(fixtures, scene_id)
     os.makedirs(out, exist_ok=True)
 
     occ = ev["occ"] > 0
     features = ev["features"].astype(np.float32)
-    node = pg["node_probs"] > doc["shell"]["node_threshold"]
+    node = _boundary_nodes(pg, doc.shell.node_threshold)
     anynode = node.any(0)
     # the editor frames scenes around the origin — center xy, floor at 0
     center = (np.asarray(occ.shape[:2]) * vox / 2.0).tolist()
@@ -297,9 +322,9 @@ def export_fixtures(
     # better than 8 cm surface reconstructions.
     def _outside_objects(pts_w: np.ndarray) -> np.ndarray:
         outside = np.ones(len(pts_w), bool)
-        for o in doc["objects"]:
-            c, s_ = np.asarray(o["center"]), np.asarray(o["size"])
-            ch, sh = math.cos(o["heading"]), math.sin(o["heading"])
+        for o in doc.objects:
+            c, s_ = np.asarray(o.center), np.asarray(o.size)
+            ch, sh = math.cos(o.heading), math.sin(o.heading)
             rel = pts_w - c
             rot = np.stack(
                 [
@@ -341,7 +366,7 @@ def export_fixtures(
     if os.path.exists(labels_path):
         lab = np.load(labels_path)
         lab_pts = lab["pts"].astype(np.float32) - np.asarray(
-            doc["frame_shift"], np.float32
+            doc.frame_shift, np.float32
         )
         lab_cls = [str(c) for c in lab["classes"][lab["label"]]]
     else:
@@ -350,9 +375,9 @@ def export_fixtures(
     obj_dir = os.path.join(out, "objects")
     os.makedirs(obj_dir, exist_ok=True)
 
-    def _object_mesh(i: int, o: dict) -> str | None:
-        c, s_ = np.asarray(o["center"]), np.asarray(o["size"])
-        h = math.cos(o["heading"]), math.sin(o["heading"])
+    def _object_mesh(i: int, o: SceneObject) -> str | None:
+        c, s_ = np.asarray(o.center), np.asarray(o.size)
+        h = math.cos(o.heading), math.sin(o.heading)
         rel = lab_pts - c
         rot = np.stack(
             [
@@ -364,17 +389,7 @@ def export_fixtures(
         )
         inside = np.all(np.abs(rot) <= s_ / 2 + 0.06, axis=1)
         if lab_cls is not None:
-            inside &= (
-                np.fromiter(
-                    (lab_cls[j] == o["cls"] for j in range(len(lab_cls))),
-                    bool,
-                    len(lab_cls),
-                )
-                | ~inside
-            )  # keep the box filter authoritative
-            inside = np.all(np.abs(rot) <= s_ / 2 + 0.06, axis=1) & (
-                np.asarray(lab_cls) == o["cls"]
-            )
+            inside &= np.asarray(lab_cls) == o.cls
         pts_i = lab_pts[inside]
         if len(pts_i) < 30:
             return None
@@ -399,76 +414,68 @@ def export_fixtures(
         return f"/fixtures/{scene_id}/objects/object-{i}.glb"
 
     # analysis: objects in the editor's y-up frame
-    objects = []
-    for i, o in enumerate(doc["objects"]):
-        cx, cy, cz = o["center"]
-        sx, sy, sz = o["size"]
+    proposals = []
+    for i, o in enumerate(doc.objects):
+        cx, cy, cz = o.center
+        sx, sy, sz = o.size
         mesh_uri = _object_mesh(i, o)
-        objects.append(
-            {
-                "id": f"spatiallm-{i}",
-                "label": o["cls"],
-                "category": o["cls"],
-                "position": [cx - center[0], cz, -(cy - center[1])],
-                "rotation_xyzw": [
+        proposals.append(
+            SplatObjectProposal(
+                id=f"spatiallm-{i}",
+                label=o.cls,
+                category=o.cls,
+                position=(cx - center[0], cz, -(cy - center[1])),
+                rotation_xyzw=(
                     0.0,
-                    math.sin(o["heading"] / 2),
+                    math.sin(o.heading / 2),
                     0.0,
-                    math.cos(o["heading"] / 2),
-                ],
-                "bounds": [sx, sz, sy],
-                "confidence": 0.7,
-                "method": "spatiallm",
-                "source_views": [],
-                **(
-                    {"measured_mesh_uri": mesh_uri, "measured_mesh_z_up": True}
-                    if mesh_uri
-                    else {}
+                    math.cos(o.heading / 2),
                 ),
-            }
+                bounds=(sx, sz, sy),
+                measured_mesh_uri=mesh_uri,
+                measured_mesh_z_up=True if mesh_uri else None,
+            )
         )
-    analysis = {
-        "schema": "roomform.splat-analysis.result.v1",
-        "scene_id": scene_id,
-        "splat_uri": f"/fixtures/{scene_id}/editable.ply",
-        "detector": "spatiallm/qwen",
-        "coordinate_system": "source-splat",
-        "objects": objects,
-    }
+    analysis = SplatAnalysis(
+        scene_id=scene_id,
+        splat_uri=f"/fixtures/{scene_id}/editable.ply",
+        objects=proposals,
+    )
     with open(os.path.join(out, "analysis.json"), "w") as fh:
-        json.dump(analysis, fh, indent=1)
+        fh.write(
+            analysis.model_dump_json(
+                indent=1, by_alias=True, exclude_none=True
+            )
+        )
 
-    program = {
-        "schema": "roomform.scene-program.v1",
-        "dataset_id": scene_id,
-        "statements": [],
-    }
+    program = SceneProgram(dataset_id=scene_id)
     with open(os.path.join(out, "scene-program.json"), "w") as fh:
-        json.dump(program, fh, indent=1)
+        fh.write(program.model_dump_json(indent=1, by_alias=True))
 
-    entry = {
-        "id": scene_id,
-        "title": title,
-        "stats": {"objects": len(objects)},
-        "assets": {
-            "input": f"/fixtures/{scene_id}/input-cloud.ply",
-            "mesh": f"/fixtures/{scene_id}/mesh.glb",
-            "shell": f"/fixtures/{scene_id}/shell.glb",
-            "editable": f"/fixtures/{scene_id}/editable.ply",
-            "program": f"/fixtures/{scene_id}/scene-program.json",
-            "objectsAnalysis": f"/fixtures/{scene_id}/analysis.json",
-        },
-        "updated_at": datetime.datetime.now(datetime.UTC).isoformat(),
-    }
+    entry = FixtureEntry(
+        id=scene_id,
+        title=title,
+        stats=FixtureStats(objects=len(proposals)),
+        assets=FixtureAssets(
+            input=f"/fixtures/{scene_id}/input-cloud.ply",
+            mesh=f"/fixtures/{scene_id}/mesh.glb",
+            shell=f"/fixtures/{scene_id}/shell.glb",
+            editable=f"/fixtures/{scene_id}/editable.ply",
+            program=f"/fixtures/{scene_id}/scene-program.json",
+            objectsAnalysis=f"/fixtures/{scene_id}/analysis.json",
+        ),
+        updated_at=datetime.datetime.now(datetime.UTC).isoformat(),
+    )
     index_path = os.path.join(fixtures, "index.json")
-    index = {"schema": "roomform.fixtures-index.v1", "scenes": []}
+    index = FixturesIndex()
     if os.path.exists(index_path):
         with open(index_path) as fh:
-            index = json.load(fh)
-    index["scenes"] = [s for s in index["scenes"] if s["id"] != scene_id]
-    index["scenes"].append(entry)
+            index = FixturesIndex(**json.load(fh))
+    index.upsert(entry)
     with open(index_path, "w") as fh:
-        json.dump(index, fh, indent=1)
+        fh.write(
+            index.model_dump_json(indent=1, by_alias=True, exclude_none=True)
+        )
     return out
 
 

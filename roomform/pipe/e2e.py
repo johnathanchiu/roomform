@@ -205,9 +205,7 @@ def main() -> None:
         os.path.join(out_dir, "evidence.npz"),
     )
     emit("glb.done", artifact=os.path.join(out_dir, "scene.glb"))
-    flagged = sum(
-        1 for o in doc.objects if o.qa.leaking
-    )
+    flagged = sum(1 for o in doc.objects if o.qa.leaking)
     emit(
         "scene.done",
         artifact=os.path.join(out_dir, "scene.json"),

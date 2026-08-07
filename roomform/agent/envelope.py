@@ -4,13 +4,13 @@ The model leaves residual boundary defects: disconnected wall sheets
 and floor/ceiling holes. This module proposes candidate fills
 deterministically, renders one self-contained "profile card" (top-down
 footprint + vertical section) per candidate, gets a SINGLE-SHOT VLM
-approve/reject per candidate (no agent loops), and writes approved
-fills as an ADDITIVE `agent_fill` key in patchgraph.npz — measured
+    approve/reject per candidate (no agent loops), and writes approved
+    fills as an ADDITIVE `agent_fill [3,X,Y,Z]` key in patchgraph.npz — measured
 `node_probs` are never modified (provenance separation).
 
 Usage:
     uv run python -m roomform.agent.envelope artifacts/<scene> \
-        [--dry-run] [--provider anthropic|openai|claude-cli]
+        [--approve-all] [--provider anthropic|openai|claude-cli]
 
 Providers: `anthropic` (default, claude-opus-5, ANTHROPIC_API_KEY),
 `openai` (OPENAI_API_KEY), `claude-cli` (headless Claude Code
@@ -144,7 +144,6 @@ def _slab_holes(
 
 def propose_gaps(
     pg: dict[str, np.ndarray],
-    evidence: dict[str, np.ndarray],
     *,
     vox_m: float,
     node_threshold: float = 0.5,
@@ -291,12 +290,12 @@ def judge(
     candidates: list[Candidate],
     *,
     settings: Settings | None = None,
-    dry_run: bool = False,
+    approve_all: bool = False,
 ) -> list[dict[str, str]]:
-    """One VLM call per candidate (or none with --dry-run)."""
-    if dry_run:
+    """One VLM call per candidate, or deterministic approval for inspection."""
+    if approve_all:
         return [
-            {"verdict": "approve", "reason": "approved (dry-run)"}
+            {"verdict": "approve", "reason": "approved (--approve-all)"}
             for _ in candidates
         ]
     client = create_client(settings or get_settings())
@@ -321,7 +320,7 @@ def apply(
     candidates: list[Candidate],
     decisions: list[dict[str, str]],
     *,
-    dry_run: bool = False,
+    approve_all: bool = False,
     provider: str = "anthropic",
 ) -> dict:
     """Write additive agent_fill into patchgraph.npz + append the log.
@@ -332,18 +331,32 @@ def apply(
     pg_path = scene_dir / "patchgraph.npz"
     with np.load(pg_path) as d:
         data = {k: d[k] for k in d.files}
-    shape = data["node_probs"].shape[1:]
-    agent_fill = np.zeros(shape, dtype=np.uint8)
+    if len(candidates) != len(decisions):
+        raise ValueError("each candidate requires exactly one decision")
+
+    shape = data["node_probs"].shape
+    existing = data.get("agent_fill")
+    agent_fill = (
+        existing.astype(np.uint8, copy=True)
+        if existing is not None
+        else np.zeros(shape, dtype=np.uint8)
+    )
+    if agent_fill.shape != shape:
+        raise ValueError(
+            f"agent_fill shape {agent_fill.shape} does not match {shape}"
+        )
+    class_index = {"wall_gap": 0, "floor_hole": 1, "ceiling_hole": 2}
     for c, dec in zip(candidates, decisions):
         if dec["verdict"] == "approve":
-            agent_fill[c.fill[:, 0], c.fill[:, 1], c.fill[:, 2]] = 1
+            channel = class_index[c.kind]
+            agent_fill[channel, c.fill[:, 0], c.fill[:, 1], c.fill[:, 2]] = 1
     data["agent_fill"] = agent_fill
     np.savez_compressed(pg_path, **data)
 
     record = {
         "time": datetime.now(UTC).isoformat(timespec="seconds"),
         "provider": provider,
-        "dry_run": dry_run,
+        "approve_all": approve_all,
         "approved_voxels": int(agent_fill.sum()),
         "decisions": [
             {
@@ -370,7 +383,11 @@ def apply(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("scene_dir", type=Path)
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--approve-all",
+        action="store_true",
+        help="skip VLM calls and approve every proposal (inspection only)",
+    )
     parser.add_argument(
         "--provider",
         choices=["anthropic", "openai", "claude-cli"],
@@ -390,7 +407,7 @@ def main() -> None:
     with np.load(args.scene_dir / "evidence.npz") as d:
         ev = {k: d[k] for k in d.files}
 
-    cands = propose_gaps(pg, ev, vox_m=vox, node_threshold=thr)
+    cands = propose_gaps(pg, vox_m=vox, node_threshold=thr)
     for c in cands:
         render_profile_card(
             c,
@@ -400,12 +417,12 @@ def main() -> None:
             node_threshold=thr,
             out_path=args.scene_dir / "agent-cards" / f"{c.id}.png",
         )
-    decisions = judge(cands, settings=settings, dry_run=args.dry_run)
+    decisions = judge(cands, settings=settings, approve_all=args.approve_all)
     record = apply(
         args.scene_dir,
         cands,
         decisions,
-        dry_run=args.dry_run,
+        approve_all=args.approve_all,
         provider=settings.provider,
     )
     print(json.dumps(record, indent=2))
