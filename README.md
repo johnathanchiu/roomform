@@ -108,14 +108,18 @@ class layers, voxel evidence, detection boxes — plus curation for QA
 (drag on the floor plane, shift-drag raises, Q/E rotate, WASD nudge,
 delete/rename) with Save writing `scene.json` back.
 
-**Production editor** — the scene-editing product UX. Scenes export
-into its fixture format and appear at runtime, no editor changes:
+**Production editor** — the scene-editing product UX. It reads
+`artifacts/<scene>/scene.json` natively; new pipeline runs appear on
+reload, no export step:
 
-    uv run python -m roomform.export fixtures artifacts/<scene>
-    uv run python viewer/serve_demo.py PATH/TO/editor/dist   # :8792
+    cd viewer/editor && bun install && bun run build
+    uv run python viewer/editor/serve.py                     # :8792
 
-Point `--fixtures` (or the `ROOMFORM_FIXTURES` env var) at the
-editor build's fixtures directory.
+Draggable objects come from `artifacts/<scene>/objects/` — the e2e
+pipeline writes them; for older runs:
+`uv run python -m roomform.export objects artifacts/<scene>`.
+Save (⌘S) validates against the `SceneDocument` contract and writes
+`scene.json` back.
 
 `scene.glb` is also self-contained: drop it into any glTF viewer.
 
@@ -147,7 +151,7 @@ written in the documented format must round-trip through
     │   ├── model/           patch-graph ConvFormer (the ONE architecture)
     │   ├── inference/       local runner + Modal adapter (StageApp)
     │   ├── agent/           envelope completion (VLM judge, Claude/OpenAI)
-    │   ├── export.py        scene.glb + demo-editor fixture exports
+    │   ├── export.py        scene.glb + per-object mesh exports
     │   └── eval.py          shell/connectivity F1 metrics
     ├── viewer/              web viewers + dev servers (not in the wheel)
     ├── research/            training loop + experiments (never

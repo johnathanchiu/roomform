@@ -35,8 +35,8 @@ The package lives in `roomform/roomform/` (no `src/` layout).
   All Modal stages go through `modal_adapter.StageApp` — never write a
   bespoke Modal app per stage.
 - `agent/` owns the multi-provider LLM harness.
-- `export.py` owns artifacts -> display geometry (GLB + demo-editor
-  fixtures). `eval.py` owns the metrics.
+- `export.py` owns artifacts -> display geometry (scene GLB +
+  per-object mesh GLBs for the editor). `eval.py` owns the metrics.
 - `viewer/` (top level, outside the wheel) owns the web viewers and
   their dev servers.
 - `research/` owns training and experiments (not part of the pip
@@ -73,7 +73,8 @@ uv sync --extra model --extra modal --extra dev   # extras are additive per
 uv run pytest tests/ -q
 uv run ruff format . && uv run ruff check .
 uv run python -m roomform.pipe.e2e SCAN.ply       # full pipeline
-uv run python viewer/debug/serve.py                     # editor on :8790
+uv run python viewer/debug/serve.py               # debug viewer on :8790
+uv run python viewer/editor/serve.py              # editor on :8792
 ```
 
 Credentials: `uv run modal setup` for lifting; `FAL_KEY` in `.env` for
