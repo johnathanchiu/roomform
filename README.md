@@ -27,7 +27,7 @@ need:
 | `model` | torch, scipy        | shell completion (local inference)  |
 | `modal` | modal               | SpatialLM lifting on Modal          |
 | `fal`   | fal-client, pillow  | live SAM 3D object reconstruction   |
-| `agent` | anthropic, openai…  | the geometry-fixing agent harness   |
+| `agent` | anthropic, openai, matplotlib | envelope completion (VLM-judged fills) |
 | `dev`   | ruff, pytest, pyyaml| lint + tests                        |
 
 Credentials, only for the stages that use them:
@@ -143,7 +143,7 @@ written in the documented format must round-trip through
     │   ├── pipe/            evidence -> lifting -> reconstruction -> fuse, e2e driver
     │   ├── model/           patch-graph ConvFormer (the ONE architecture)
     │   ├── inference/       local runner + Modal adapter (StageApp)
-    │   ├── agent/           multi-provider LLM harness (Claude/OpenAI/…)
+    │   ├── agent/           envelope completion (VLM judge, Claude/OpenAI)
     │   ├── export.py        scene.glb + demo-editor fixture exports
     │   └── eval.py          shell/connectivity F1 metrics
     ├── viewer/              web viewers + dev servers (not in the wheel)

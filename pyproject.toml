@@ -14,7 +14,7 @@ dependencies = ["numpy", "pydantic>=2", "trimesh", "scikit-image"]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "pyyaml"]
-agent = ["anthropic", "openai", "pydantic-settings", "httpx", "websockets", "google-genai"]
+agent = ["anthropic", "openai", "pydantic-settings", "matplotlib"]
 model = ["torch", "scipy"]
 modal = ["modal"]
 fal = ["fal-client>=0.5", "pillow>=10"]

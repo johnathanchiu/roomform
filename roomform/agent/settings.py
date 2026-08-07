@@ -1,28 +1,18 @@
+"""Agent settings: provider selection + credentials (ROOMFORM_ env
+prefix, `.env` aware). The harness is a single-shot VLM judge; there is
+no run loop to configure."""
+
 from __future__ import annotations
 
 from functools import cache
-from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_OUTPUT_DIR = Path("runs")
-DEFAULT_MAX_TURNS = 100
-DEFAULT_COMPILE_TIMEOUT_SECONDS = 900.0
-DEFAULT_OPENAI_MODEL = "gpt-5.5-2026-04-23"
-DEFAULT_OPENAI_MAX_ATTEMPTS = 4
-DEFAULT_OPENAI_REQUEST_TIMEOUT_SECONDS = 900.0
-DEFAULT_PROVIDER = "openai"
+DEFAULT_PROVIDER = "anthropic"
 DEFAULT_ANTHROPIC_MODEL = "claude-opus-5"
-DEFAULT_ANTHROPIC_MAX_ATTEMPTS = 4
-DEFAULT_ANTHROPIC_REQUEST_TIMEOUT_SECONDS = 3600.0
-DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
-DEFAULT_GEMINI_MAX_ATTEMPTS = 4
-DEFAULT_GEMINI_REQUEST_TIMEOUT_SECONDS = 900.0
-DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
-DEFAULT_OPENROUTER_MAX_ATTEMPTS = 4
-DEFAULT_OPENROUTER_REQUEST_TIMEOUT_SECONDS = 900.0
+DEFAULT_OPENAI_MODEL = "gpt-5.5-2026-04-23"
 
 
 class Settings(BaseSettings):
@@ -33,34 +23,9 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    output_dir: Path = Field(
-        default=DEFAULT_OUTPUT_DIR,
-        validation_alias="ROOMFORM_OUTPUT_DIR",
-    )
-    provider: Literal["openai", "gemini", "anthropic", "openrouter"] = Field(
+    provider: Literal["anthropic", "openai", "claude-cli"] = Field(
         default=DEFAULT_PROVIDER,
         validation_alias="ROOMFORM_PROVIDER",
-    )
-    openai_model: str = Field(
-        default=DEFAULT_OPENAI_MODEL,
-        validation_alias="ROOMFORM_MODEL",
-    )
-    openai_reasoning_effort: str = Field(
-        default="high",
-        validation_alias="ROOMFORM_REASONING_EFFORT",
-    )
-    openai_api_key: str | None = Field(
-        default=None, validation_alias="OPENAI_API_KEY"
-    )
-    openai_max_attempts: int = Field(
-        default=DEFAULT_OPENAI_MAX_ATTEMPTS,
-        ge=1,
-        validation_alias="ROOMFORM_OPENAI_MAX_ATTEMPTS",
-    )
-    openai_request_timeout_seconds: float = Field(
-        default=DEFAULT_OPENAI_REQUEST_TIMEOUT_SECONDS,
-        gt=0.0,
-        validation_alias="ROOMFORM_OPENAI_REQUEST_TIMEOUT_SECONDS",
     )
     anthropic_model: str = Field(
         default=DEFAULT_ANTHROPIC_MODEL,
@@ -70,88 +35,22 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="ANTHROPIC_API_KEY",
     )
-    anthropic_max_attempts: int = Field(
-        default=DEFAULT_ANTHROPIC_MAX_ATTEMPTS,
-        ge=1,
-        validation_alias="ROOMFORM_ANTHROPIC_MAX_ATTEMPTS",
+    openai_model: str = Field(
+        default=DEFAULT_OPENAI_MODEL,
+        validation_alias="ROOMFORM_MODEL",
     )
-    anthropic_request_timeout_seconds: float = Field(
-        default=DEFAULT_ANTHROPIC_REQUEST_TIMEOUT_SECONDS,
-        gt=0.0,
-        validation_alias="ROOMFORM_ANTHROPIC_REQUEST_TIMEOUT_SECONDS",
-    )
-    gemini_model: str = Field(
-        default=DEFAULT_GEMINI_MODEL,
-        validation_alias="ROOMFORM_GEMINI_MODEL",
-    )
-    gemini_api_key: str | None = Field(
+    openai_api_key: str | None = Field(
         default=None,
-        validation_alias="GEMINI_API_KEY",
-    )
-    gemini_max_attempts: int = Field(
-        default=DEFAULT_GEMINI_MAX_ATTEMPTS,
-        ge=1,
-        validation_alias="ROOMFORM_GEMINI_MAX_ATTEMPTS",
-    )
-    gemini_request_timeout_seconds: float = Field(
-        default=DEFAULT_GEMINI_REQUEST_TIMEOUT_SECONDS,
-        gt=0.0,
-        validation_alias="ROOMFORM_GEMINI_REQUEST_TIMEOUT_SECONDS",
-    )
-    openrouter_model: str = Field(
-        default=DEFAULT_OPENROUTER_MODEL,
-        validation_alias="ROOMFORM_OPENROUTER_MODEL",
-    )
-    openrouter_api_key: str | None = Field(
-        default=None,
-        validation_alias="OPENROUTER_API_KEY",
-    )
-    openrouter_max_attempts: int = Field(
-        default=DEFAULT_OPENROUTER_MAX_ATTEMPTS,
-        ge=1,
-        validation_alias="ROOMFORM_OPENROUTER_MAX_ATTEMPTS",
-    )
-    openrouter_request_timeout_seconds: float = Field(
-        default=DEFAULT_OPENROUTER_REQUEST_TIMEOUT_SECONDS,
-        gt=0.0,
-        validation_alias="ROOMFORM_OPENROUTER_REQUEST_TIMEOUT_SECONDS",
-    )
-    openrouter_http_referer: str | None = Field(
-        default=None,
-        validation_alias="OPENROUTER_HTTP_REFERER",
-    )
-    openrouter_app_title: str | None = Field(
-        default=None,
-        validation_alias="OPENROUTER_APP_TITLE",
-    )
-    max_turns: int = Field(
-        default=DEFAULT_MAX_TURNS, validation_alias="ROOMFORM_MAX_TURNS"
-    )
-    physics_enabled: bool = Field(
-        default=False,
-        validation_alias="ROOMFORM_PHYSICS",
-    )
-    compile_timeout_seconds: float = Field(
-        default=DEFAULT_COMPILE_TIMEOUT_SECONDS,
-        gt=0.0,
-        validation_alias="ROOMFORM_COMPILE_TIMEOUT_SECONDS",
+        validation_alias="OPENAI_API_KEY",
     )
 
-    @property
-    def selected_model(self) -> str:
-        if self.provider == "openrouter":
-            return self.openrouter_model
-        if self.provider == "anthropic":
-            return self.anthropic_model
-        if self.provider == "gemini":
-            return self.gemini_model
-        return self.openai_model
-
-    @property
-    def selected_reasoning_effort(self) -> str:
-        if self.provider == "openai":
-            return self.openai_reasoning_effort
-        return ""
+    def api_key_for(self, provider: str) -> str:
+        key = (
+            self.anthropic_api_key
+            if provider == "anthropic"
+            else self.openai_api_key
+        )
+        return (key or "").strip()
 
 
 @cache
