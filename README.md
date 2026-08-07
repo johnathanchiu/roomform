@@ -133,6 +133,18 @@ artifacts/<scene>/evidence.npz`.
 |---|---|
 | ![object detection](assets/media/objects.gif) | ![training progression](assets/media/training.gif) |
 
+## Known limitations
+
+Scan quality matters: heavily broken point clouds — bad registration,
+mirror/glass ghosting, single-tripod scans dominated by beam spill —
+degrade both the boundary prediction and the point-label objects.
+The pipeline guards what it can (orientation + leveling, dominant-
+region cropping, wall-band rejection), but garbage geometry is still
+garbage evidence. A more robust boundary model is the focus of the
+next training iteration. Building-scale scans (whole floors) exceed
+local CPU attention today; GPU inference or windowing is the
+workaround.
+
 ## Tests and lint
 
     uv run pytest tests/
