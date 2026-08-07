@@ -37,6 +37,8 @@ function InitialCamera({ target = roomTarget }: { target?: Vector3 }) {
     camera.lookAt(target);
     camera.updateProjectionMatrix();
     invalidate();
+    // live camera handle for scripted viewport checks (playwright)
+    (window as unknown as { __camera?: unknown }).__camera = camera;
   }, [camera, invalidate]);
   return null;
 }
@@ -910,6 +912,7 @@ export default function SplatPreview({
           makeDefault
           enabled={!dragId}
           target={orbitTarget}
+          zoomToCursor
           enablePan
           mouseButtons={{ LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
           minDistance={0.5}
