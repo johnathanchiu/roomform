@@ -88,9 +88,6 @@ that always starts `(node, edge)` and appends what is enabled:
 - **openings** (`predict_openings`) — 2 channels (door, window).
   Openings are evidence that *subtracts* from latent wall support,
   not a fourth node class; bias starts at −4 so they must be earned.
-- **micro** (`predict_micro`) — a sparse per-cell decoder that
-  upsamples selected 8 cm cells into 4³ semantic grids at 2 cm,
-  without ever materializing a dense fine grid.
 
 ## Checkpoints
 

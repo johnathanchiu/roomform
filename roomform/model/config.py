@@ -25,7 +25,6 @@ class ModelConfig(BaseModel):
     heads: int = 8
     predict_offsets: bool = False  # sub-voxel surface refinement head
     predict_openings: bool = False  # door/window channels
-    predict_micro: bool = False  # sparse 2 cm micro decoder
     opening_visibility: bool = False  # extra visibility input channel
     isolated_refinement: bool = False  # offsets fed via separate stem
 
@@ -39,7 +38,6 @@ class ModelConfig(BaseModel):
             heads=self.heads,
             predict_offsets=self.predict_offsets,
             predict_openings=self.predict_openings,
-            predict_micro=self.predict_micro,
             opening_visibility=self.opening_visibility,
             isolated_refinement=self.isolated_refinement,
         )

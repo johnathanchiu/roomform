@@ -34,7 +34,6 @@ class PatchGraphConvFormer(nn.Module):
         heads: int = 8,
         predict_offsets: bool = False,
         predict_openings: bool = False,
-        predict_micro: bool = False,
         opening_visibility: bool = False,
         isolated_refinement: bool = False,
     ):
@@ -106,17 +105,6 @@ class PatchGraphConvFormer(nn.Module):
             if predict_openings
             else None
         )
-        self.micro_factor = 4
-        self.micro_classes = 5  # wall, floor, ceiling, door, window
-        self.micro_head = (
-            nn.Sequential(
-                nn.Linear(c0, 2 * c0),
-                nn.GELU(),
-                nn.Linear(2 * c0, self.micro_classes * self.micro_factor**3),
-            )
-            if predict_micro
-            else None
-        )
         if self.offset_head is not None:
             # A newly enabled refinement head must reproduce the established
             # voxel-center baseline before it has learned any displacement.
@@ -141,30 +129,6 @@ class PatchGraphConvFormer(nn.Module):
         local = self.opening_evidence_stem(evidence)
         return self.opening_head(self.opening_refine(features + local))
 
-    def decode_micro(
-        self, features: torch.Tensor, indices: torch.Tensor
-    ) -> torch.Tensor:
-        """Decode selected 8 cm cells into semantic 4^3 grids at 2 cm.
-
-        `indices` is [N,4] in (batch,x,y,z) order. Keeping this sparse avoids
-        materializing hundreds of fine-grid channels over the entire room.
-        """
-        if self.micro_head is None:
-            raise RuntimeError("micro refinement is not enabled")
-        if indices.ndim != 2 or indices.shape[1] != 4:
-            raise ValueError("indices must have shape [N,4]")
-        dense = features.permute(0, 2, 3, 4, 1)
-        b, x, y, z = indices.long().unbind(1)
-        selected = dense[b, x, y, z]
-        logits = self.micro_head(selected)
-        return logits.reshape(
-            -1,
-            self.micro_classes,
-            self.micro_factor,
-            self.micro_factor,
-            self.micro_factor,
-        )
-
     @staticmethod
     def _pad(grid: torch.Tensor) -> torch.Tensor:
         pads = [(8 - size % 8) % 8 for size in grid.shape[-3:]]
@@ -175,12 +139,6 @@ class PatchGraphConvFormer(nn.Module):
         if valid is None:
             return None
         return F.max_pool3d(valid.float(), factor, stride=factor) > 0
-
-    @staticmethod
-    def _run_block(
-        x: torch.Tensor, block: ResidualBlock, valid: torch.Tensor | None
-    ) -> torch.Tensor:
-        return block(x, valid)
 
     def forward(
         self,
@@ -207,9 +165,9 @@ class PatchGraphConvFormer(nn.Module):
         valid1, valid2, valid3 = (
             self._mask(valid0, factor) for factor in (2, 4, 8)
         )
-        x0 = self._run_block(self.stem(x), self.enc0, valid0)
-        x1 = self._run_block(self.down1(x0), self.enc1, valid1)
-        x2 = self._run_block(self.down2(x1), self.enc2, valid2)
+        x0 = self.enc0(self.stem(x), valid0)
+        x1 = self.enc1(self.down1(x0), valid1)
+        x2 = self.enc2(self.down2(x1), valid2)
         x3 = self.down3(x2)
         shape = tuple(x3.shape[-3:])
         tokens = x3.flatten(2).transpose(1, 2)
@@ -228,28 +186,21 @@ class PatchGraphConvFormer(nn.Module):
         for block in self.attention_out:
             tokens = block(tokens, valid_tokens)
         x3 = tokens.transpose(1, 2).reshape(len(tokens), -1, *shape)
-        y2 = self._run_block(self.up2(x3) + x2, self.dec2, valid2)
-        y1 = self._run_block(self.up1(y2) + x1, self.dec1, valid1)
-        y0 = self._run_block(self.up0(y1) + x0, self.dec0, valid0)
-        node, edge = self.node_head(y0), self.edge_head(y0)
-        result = [node, edge]
-        if self.offset_head is None:
-            if self.opening_head is not None:
-                result.append(self.opening_logits(y0, opening_input))
-            if return_features:
-                result.append(y0)
-            return tuple(result)
-        # Offset is expressed in voxel widths from the cell center. Keeping it
-        # inside the cell makes the representation identifiable.
-        offset_features = y0
-        if refinement_input is not None:
-            # This branch cannot perturb node/edge logits. It supplies precise
-            # observed point placement while y0 supplies frozen global context.
-            offset_features = offset_features + self.refinement_stem(
-                refinement_input
-            )
-        offset = 0.5 * torch.tanh(self.offset_head(offset_features))
-        result.append(offset)
+        y2 = self.dec2(self.up2(x3) + x2, valid2)
+        y1 = self.dec1(self.up1(y2) + x1, valid1)
+        y0 = self.dec0(self.up0(y1) + x0, valid0)
+        result = [self.node_head(y0), self.edge_head(y0)]
+        if self.offset_head is not None:
+            # Offset is in voxel widths from the cell center; staying inside
+            # the cell keeps the representation identifiable. The isolated
+            # refinement stem supplies precise observed point placement
+            # without being able to perturb node/edge logits.
+            offset_features = y0
+            if refinement_input is not None:
+                offset_features = offset_features + self.refinement_stem(
+                    refinement_input
+                )
+            result.append(0.5 * torch.tanh(self.offset_head(offset_features)))
         if self.opening_head is not None:
             result.append(self.opening_logits(y0, opening_input))
         if return_features:
