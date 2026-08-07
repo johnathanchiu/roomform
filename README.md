@@ -159,10 +159,11 @@ If you use roomform in your research, please cite:
 
 ```bibtex
 @software{roomform2026,
-  title  = {roomform: parsing point cloud indoor scans into
-            structured, editable scenes},
-  author = {Chiu, Johnathan and Zhou, Matthew and Bourne, Preston},
-  year   = {2026},
+  title   = {roomform: parsing point cloud indoor scans into structured, editable scenes},
+  author  = {Chiu, Johnathan and Zhou, Matthew and Bourne, Preston},
+  year    = {2026},
+  version = {0.1.0},
+  url     = {https://github.com/johnathanchiu/roomform},
 }
 ```
 
