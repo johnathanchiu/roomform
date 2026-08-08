@@ -1,24 +1,25 @@
-"""Evidence-snapped wall refinement: voxel bands -> clean lines.
+"""Evidence-snapped wall refinement: room contours -> clean lines.
 
 The boundary model predicts walls as 6-8 cm voxel bands: stepped
-outlines, half-voxel jitter, soft corners. The raw scan is
-millimeter-accurate wherever it has coverage. This stage projects the
-model's wall estimates onto that evidence and regularizes the rest:
+outlines, half-voxel jitter, soft corners. Fitting lines to wall-cell
+clusters directly inherits their fragmentation — dangling stubs, no
+topology. The floor prediction is the better scaffold: it is dense and
+closed (the model fills under furniture and clutter), so each room's
+floor contour IS the wall line, a closed loop by construction.
 
-1. segment wall cells into planar runs (direction-bucketed region
-   growing, same scheme as the planar shell),
-2. per segment, robust-fit a 2D line to scan points in a band around
-   the predicted plane (PCA init + Tukey reweighting); support and
-   residual gates keep mirror ghosts and thin walls from dragging the
-   fit — ungated segments keep the predicted line,
-3. merge collinear neighbors, then intersect adjacent lines to
-   re-derive corners exactly (no right-angle prior: curved walls stay
-   a chain of intersected facets),
-4. project opening cells onto the refined lines as clean u/z
-   rectangles.
+1. rooms = connected components of the (hole-filled) floor footprint,
+2. trace each room's boundary (Moore neighborhood), simplify with
+   Douglas-Peucker — curved walls keep enough vertices to stay a
+   facet chain, straight walls collapse to single edges,
+3. snap every polygon edge to the raw scan: Tukey-reweighted 2D line
+   fit over points in a band around the edge (support + residual
+   gates; ungated edges keep the traced line),
+4. re-intersect consecutive edges so corners are exact line-line
+   intersections — no right-angle prior anywhere,
+5. project opening cells onto the refined edges as u/z rectangles.
 
-Output: ``refined.json`` (wall-line graph + per-wall fit report) and
-crisp wall quads appended to a GLB for side-by-side inspection.
+Output: ``refined.json`` — per-room closed wall loops with a per-edge
+fit report.
 
     uv run python -m roomform.pipe.refine artifacts/<scene>
 """
@@ -27,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 
 import numpy as np
@@ -37,240 +37,184 @@ from scipy.spatial import cKDTree
 
 from roomform.contracts import SceneDocument
 
-BAND_M = 0.12  # evidence band around the predicted wall plane
-MIN_INLIERS = 250  # fewer supporting points -> keep the predicted line
-MAX_RMS_M = 0.02  # worse residual -> keep the predicted line
-MERGE_ANGLE_DEG = 5.0  # collinear-merge threshold
-MERGE_OFFSET_M = 0.05
-CORNER_JOIN_M = 0.30  # endpoints closer than this try to intersect
-MIN_SEGMENT_CELLS = 24
+BAND_M = 0.12  # evidence band around a traced edge
+MIN_INLIERS_PER_M = 90  # supporting points per meter, floor of 50
+MAX_RMS_M = 0.02  # worse residual -> keep the traced line
+SIMPLIFY_EPS_CELLS = 0.8  # Douglas-Peucker tolerance, in voxels
+MIN_ROOM_M2 = 2.0
+MIN_EDGE_M = 0.25  # shorter traced edges merge into neighbors
+MAX_CORNER_SHIFT_M = 0.35  # cap how far re-intersection may move a vertex
 
 
-# ------------------------------------------------------------ segments ----
+# ------------------------------------------------------- contour tracing ----
 
 
-def _wall_segments(node_wall: np.ndarray, vox: float):
-    """Direction-bucketed connected wall segments (cell index sets)."""
-    foot = node_wall.any(2)
-    fp = np.argwhere(foot)
-    if not len(fp):
-        return
-    tree = cKDTree(fp)
-    theta = np.zeros(len(fp))
-    for k, nb in enumerate(tree.query_ball_point(fp, r=3.0)):
-        q = fp[nb] - fp[nb].mean(0)
-        v = np.linalg.eigh(q.T @ q)[1][:, -1]
-        theta[k] = np.arctan2(v[1], v[0]) % np.pi
-    theta_grid = np.zeros(foot.shape)
-    theta_grid[tuple(fp.T)] = theta
-    nbins = 12
-    bins = np.floor(theta_grid / np.pi * nbins).astype(int) % nbins
-    done = np.zeros(node_wall.shape, bool)
-    for b in range(nbins):
-        sel2d = foot & (
-            (bins == b) | (bins == (b + 1) % nbins) | (bins == (b - 1) % nbins)
-        )
-        sel = node_wall & sel2d[:, :, None] & ~done
-        labels, n = ndimage.label(sel, structure=np.ones((3, 3, 3)))
-        for lab in range(1, n + 1):
-            seg = np.argwhere(labels == lab)
-            if len(seg) < MIN_SEGMENT_CELLS:
+def _trace_boundary(mask: np.ndarray) -> np.ndarray:
+    """Boundary of one connected component via marching squares.
+
+    Returns the longest closed contour as an (n, 2) array of
+    sub-cell coordinates in trace order.
+    """
+    from skimage import measure
+
+    contours = measure.find_contours(mask.astype(float), 0.5)
+    if not contours:
+        return np.empty((0, 2))
+    return max(contours, key=len)[:-1]  # drop duplicated closing vertex
+
+
+def _douglas_peucker(pts: np.ndarray, eps: float) -> np.ndarray:
+    """Iterative DP on a closed polyline (indices kept, order preserved)."""
+
+    def simplify(lo: int, hi: int, keep: np.ndarray) -> None:
+        stack = [(lo, hi)]
+        while stack:
+            a, b = stack.pop()
+            if b <= a + 1:
                 continue
-            done[tuple(seg.T)] = True
-            yield seg
+            seg = pts[b] - pts[a]
+            n = np.linalg.norm(seg)
+            if n < 1e-9:
+                d = np.linalg.norm(pts[a + 1 : b] - pts[a], axis=1)
+            else:
+                d = np.abs(np.cross(seg / n, pts[a + 1 : b] - pts[a]))
+            k = int(np.argmax(d))
+            if d[k] > eps:
+                keep[a + 1 + k] = True
+                stack += [(a, a + 1 + k), (a + 1 + k, b)]
+
+    # anchor at the two most distant points so the closed loop splits well
+    far = int(np.argmax(np.linalg.norm(pts - pts[0], axis=1)))
+    keep = np.zeros(len(pts), bool)
+    keep[[0, far]] = True
+    simplify(0, far, keep)
+    # wrap-around half
+    keep_r = np.zeros(len(pts), bool)
+    keep_r[[0, len(pts) - far]] = True
+    simplify(0, len(pts) - far, keep_r)
+    keep |= np.roll(keep_r, far)
+    return np.nonzero(keep)[0]
 
 
-class WallLine:
-    """A wall as a 2D line segment with a z-range and a fit report."""
+# ---------------------------------------------------------------- edges ----
 
-    def __init__(self, seg_cells: np.ndarray, vox: float):
-        pts = (seg_cells.astype(np.float64) + 0.5) * vox
-        self.center = pts[:, :2].mean(0)
-        q = pts[:, :2] - self.center
-        self.direction = np.linalg.eigh(q.T @ q)[1][:, -1]
-        u = q @ self.direction
-        self.u0, self.u1 = float(u.min()), float(u.max())
-        self.z0, self.z1 = float(pts[:, 2].min()), float(pts[:, 2].max())
+
+class Edge:
+    """One wall edge of a room loop, snappable to scan evidence."""
+
+    def __init__(self, p0: np.ndarray, p1: np.ndarray):
+        self.p0, self.p1 = p0.copy(), p1.copy()
         self.refined = False
         self.rms_before = None
         self.rms_after = None
         self.n_support = 0
 
     @property
-    def normal(self) -> np.ndarray:
-        return np.array([-self.direction[1], self.direction[0]])
+    def direction(self) -> np.ndarray:
+        d = self.p1 - self.p0
+        return d / max(np.linalg.norm(d), 1e-9)
 
-    def endpoints(self) -> np.ndarray:
-        return np.array(
-            [
-                self.center + self.direction * self.u0,
-                self.center + self.direction * self.u1,
-            ]
-        )
+    @property
+    def normal(self) -> np.ndarray:
+        d = self.direction
+        return np.array([-d[1], d[0]])
+
+    @property
+    def length(self) -> float:
+        return float(np.linalg.norm(self.p1 - self.p0))
 
     def snap(self, cloud_xy: np.ndarray, tree: cKDTree) -> None:
-        """Robust line refit from scan points near the predicted line."""
-        mid = self.center + self.direction * (self.u0 + self.u1) / 2
-        half = (self.u1 - self.u0) / 2 + BAND_M
-        idx = tree.query_ball_point(mid, r=half + BAND_M)
+        mid = (self.p0 + self.p1) / 2
+        idx = tree.query_ball_point(mid, r=self.length / 2 + BAND_M)
         if not idx:
             return
         p = cloud_xy[idx]
-        rel = p - self.center
+        rel = p - mid
         u, d = rel @ self.direction, rel @ self.normal
-        near = (
-            (np.abs(d) < BAND_M)
-            & (u > self.u0 - BAND_M)
-            & (u < self.u1 + BAND_M)
-        )
+        near = (np.abs(d) < BAND_M) & (np.abs(u) < self.length / 2 + BAND_M)
         p = p[near]
-        if len(p) < MIN_INLIERS:
+        min_inliers = max(50, int(MIN_INLIERS_PER_M * self.length))
+        if len(p) < min_inliers:
             return
         self.rms_before = float(np.sqrt(np.mean(d[near] ** 2)))
-        center, direction = self.center, self.direction
+        center, direction = mid, self.direction
         for _ in range(3):  # Tukey-reweighted PCA refit
             rel = p - center
-            d = rel @ np.array([-direction[1], direction[0]])
-            s = max(1.4826 * np.median(np.abs(d)), 3e-3)
-            w = np.clip(1 - (d / (4 * s)) ** 2, 0, None) ** 2
-            if w.sum() < MIN_INLIERS / 2:
+            dd = rel @ np.array([-direction[1], direction[0]])
+            s = max(1.4826 * np.median(np.abs(dd)), 3e-3)
+            w = np.clip(1 - (dd / (4 * s)) ** 2, 0, None) ** 2
+            if w.sum() < min_inliers / 2:
                 return
             center = (p * w[:, None]).sum(0) / w.sum()
             q = (p - center) * np.sqrt(w)[:, None]
             direction = np.linalg.eigh(q.T @ q)[1][:, -1]
         rel = p - center
-        d = rel @ np.array([-direction[1], direction[0]])
-        keep = np.abs(d) < 3 * max(1.4826 * np.median(np.abs(d)), 3e-3)
-        rms = float(np.sqrt(np.mean(d[keep] ** 2)))
-        if keep.sum() < MIN_INLIERS or rms > MAX_RMS_M:
+        dd = rel @ np.array([-direction[1], direction[0]])
+        keep = np.abs(dd) < 3 * max(1.4826 * np.median(np.abs(dd)), 3e-3)
+        rms = float(np.sqrt(np.mean(dd[keep] ** 2)))
+        if keep.sum() < min_inliers or rms > MAX_RMS_M:
             return
         if direction @ self.direction < 0:
             direction = -direction
-        u = (p[keep] - center) @ direction
-        self.center, self.direction = center, direction
-        self.u0, self.u1 = float(u.min()), float(u.max())
+        # slide endpoints onto the refined line (projection, not clamp:
+        # corners are re-derived by intersection right after)
+        self.p0 = center + direction * ((self.p0 - center) @ direction)
+        self.p1 = center + direction * ((self.p1 - center) @ direction)
         self.refined = True
         self.rms_after = rms
         self.n_support = int(keep.sum())
 
 
-# --------------------------------------------------------- line network ----
-
-
-def _merge_collinear(walls: list[WallLine]) -> list[WallLine]:
-    """Union nearly-collinear, overlapping neighbors into one line."""
-    merged = True
-    while merged:
-        merged = False
-        for i in range(len(walls)):
-            for j in range(i + 1, len(walls)):
-                a, b = walls[i], walls[j]
-                if abs(a.direction @ b.direction) < math.cos(
-                    math.radians(MERGE_ANGLE_DEG)
-                ):
-                    continue
-                if abs((b.center - a.center) @ a.normal) > MERGE_OFFSET_M:
-                    continue
-                ua = np.array([a.u0, a.u1])
-                ub = (b.center - a.center) @ a.direction + np.array(
-                    [b.u0, b.u1]
-                )
-                if (
-                    ub.min() > ua.max() + CORNER_JOIN_M
-                    or ua.min() > ub.max() + CORNER_JOIN_M
-                ):
-                    continue
-                a.u0 = float(min(ua.min(), ub.min()))
-                a.u1 = float(max(ua.max(), ub.max()))
-                a.z0, a.z1 = min(a.z0, b.z0), max(a.z1, b.z1)
-                a.refined = a.refined or b.refined
-                walls.pop(j)
-                merged = True
-                break
-            if merged:
-                break
-    return walls
-
-
-def _cull_stubs(walls: list[WallLine]) -> list[WallLine]:
-    """Drop short unrefined fragments that shadow a refined line.
-
-    Leftover voxel stubs next to an evidence-snapped wall add zigzag
-    noise without adding structure; anything short, unsnapped, and
-    mostly within a band of a refined line goes."""
-    refined = [w for w in walls if w.refined]
-    keep = []
-    for w in walls:
-        if w.refined or (w.u1 - w.u0) > 0.9:
-            keep.append(w)
+def _merge_short_edges(edges: list[Edge]) -> list[Edge]:
+    """Fold sub-threshold edges into their longer neighbor."""
+    out = []
+    for e in edges:
+        if out and e.length < MIN_EDGE_M:
+            out[-1].p1 = e.p1
             continue
-        mid = w.center + w.direction * (w.u0 + w.u1) / 2
-        shadowed = any(
-            abs((mid - r.center) @ r.normal) < 3 * MERGE_OFFSET_M
-            and r.u0 - CORNER_JOIN_M
-            < (mid - r.center) @ r.direction
-            < r.u1 + CORNER_JOIN_M
-            for r in refined
-        )
-        if not shadowed:
-            keep.append(w)
-    return keep
+        out.append(e)
+    if len(out) > 1 and out[0].length < MIN_EDGE_M:
+        out[-1].p1 = out[0].p1
+        out.pop(0)
+    return out
 
 
-def _intersect_corners(walls: list[WallLine]) -> int:
-    """Snap close endpoint pairs to the exact line intersection."""
+def _reintersect(edges: list[Edge]) -> int:
+    """Corner = intersection of consecutive edge lines (capped shift)."""
     joined = 0
-    ends = [(w, e) for w in walls for e in (0, 1)]
-    for i in range(len(ends)):
-        for j in range(i + 1, len(ends)):
-            (wa, ea), (wb, eb) = ends[i], ends[j]
-            if wa is wb:
-                continue
-            if abs(wa.direction @ wb.direction) > math.cos(math.radians(20)):
-                continue  # near-parallel: no stable intersection
-            pa, pb = wa.endpoints()[ea], wb.endpoints()[eb]
-            if np.linalg.norm(pa - pb) > CORNER_JOIN_M:
-                continue
-            # solve wa.center + ta*da = wb.center + tb*db
-            A = np.stack([wa.direction, -wb.direction], 1)
-            try:
-                ta, tb = np.linalg.solve(A, wb.center - wa.center)
-            except np.linalg.LinAlgError:
-                continue
-            old_a = wa.u0 if ea == 0 else wa.u1
-            old_b = wb.u0 if eb == 0 else wb.u1
-            if (
-                abs(ta - old_a) > CORNER_JOIN_M
-                or abs(tb - old_b) > CORNER_JOIN_M
-            ):
-                continue  # intersection would drag a wall far past its span
-            if ea == 0:
-                wa.u0 = float(ta)
-            else:
-                wa.u1 = float(ta)
-            if eb == 0:
-                wb.u0 = float(tb)
-            else:
-                wb.u1 = float(tb)
-            joined += 1
+    n = len(edges)
+    for i in range(n):
+        a, b = edges[i], edges[(i + 1) % n]
+        A = np.stack([a.direction, -b.direction], 1)
+        if abs(np.linalg.det(A)) < 0.17:  # near-parallel (<10 deg)
+            mid = (a.p1 + b.p0) / 2
+            a.p1, b.p0 = mid.copy(), mid.copy()
+            continue
+        ta, _ = np.linalg.solve(A, b.p0 - a.p0)
+        corner = a.p0 + a.direction * ta
+        if np.linalg.norm(corner - a.p1) > MAX_CORNER_SHIFT_M:
+            mid = (a.p1 + b.p0) / 2
+            a.p1, b.p0 = mid.copy(), mid.copy()
+            continue
+        a.p1, b.p0 = corner.copy(), corner.copy()
+        joined += 1
     return joined
 
 
 # ------------------------------------------------------------- openings ----
 
 
-def _wall_openings(w: WallLine, opening_cells: np.ndarray, vox: float):
-    """Opening cells near this wall -> clean u/z rectangles."""
+def _edge_openings(e: Edge, opening_cells: np.ndarray, vox: float):
     if opening_cells is None or not len(opening_cells):
         return []
     p = (opening_cells.astype(np.float64) + 0.5) * vox
-    rel = p[:, :2] - w.center
-    d, u = rel @ w.normal, rel @ w.direction
-    near = (np.abs(d) < 2.5 * vox) & (u > w.u0 - vox) & (u < w.u1 + vox)
+    mid = (e.p0 + e.p1) / 2
+    rel = p[:, :2] - mid
+    d, u = rel @ e.normal, rel @ e.direction
+    near = (np.abs(d) < 2.5 * vox) & (np.abs(u) < e.length / 2 + vox)
     if not near.any():
         return []
-    # cluster along u, then take a tight rect per cluster
-    us, zs = u[near], p[near][:, 2]
+    us, zs = u[near] + e.length / 2, p[near][:, 2]
     order = np.argsort(us)
     us, zs = us[order], zs[order]
     rects, start = [], 0
@@ -308,49 +252,165 @@ def refine_scene(scene_dir: str) -> dict:
     cloud_xy = np.asarray(cloud.vertices, np.float64)[:, :2]
     tree = cKDTree(cloud_xy)
 
-    walls = [WallLine(seg, vox) for seg in _wall_segments(node[0], vox)]
-    for w in walls:
-        w.snap(cloud_xy, tree)
-    walls = _merge_collinear(walls)
-    walls = _cull_stubs(walls)
-    corners = _intersect_corners(walls)
+    # rooms from the hole-filled floor footprint; walls thicken the
+    # floor edge outward so the traced contour sits ON the wall band
+    floor = ndimage.binary_fill_holes(node[1].any(2))
+    floor = ndimage.binary_closing(floor, np.ones((3, 3)), iterations=2)
+    labels, n = ndimage.label(floor)
+    z_lo = (
+        float(np.argwhere(node[1])[:, 2].min() + 0.5) * vox
+        if node[1].any()
+        else 0.0
+    )
+    z_hi = (
+        float(np.argwhere(node[2])[:, 2].mean() + 0.5) * vox
+        if node[2].any()
+        else 2.6
+    )
 
-    refined = [w for w in walls if w.refined and w.rms_after is not None]
+    rooms = []
+    eps = SIMPLIFY_EPS_CELLS
+    for lab in range(1, n + 1):
+        mask = labels == lab
+        if mask.sum() * vox * vox < MIN_ROOM_M2:
+            continue
+        contour = _trace_boundary(mask)
+        if len(contour) < 8:
+            continue
+        keep = _douglas_peucker(contour, eps)
+        verts = (contour[np.sort(keep)] + 0.5) * vox
+        edges = [
+            Edge(verts[i], verts[(i + 1) % len(verts)])
+            for i in range(len(verts))
+        ]
+        edges = _merge_short_edges(edges)
+        for e in edges:
+            e.snap(cloud_xy, tree)
+        corners = _reintersect(edges)
+        rooms.append({"edges": edges, "corners": corners})
+
+    partitions = _interior_walls(node[0], vox, rooms, cloud_xy, tree)
+    all_edges = [e for r in rooms for e in r["edges"]] + partitions
+    refined = [e for e in all_edges if e.refined and e.rms_after]
     report = {
-        "walls": len(walls),
+        "rooms": len(rooms),
+        "partitions": len(partitions),
+        "edges": len(all_edges),
         "refined": len(refined),
-        "corners_joined": corners,
         "rms_before_mm": round(
-            1e3 * float(np.mean([w.rms_before for w in refined])), 1
+            1e3 * float(np.mean([e.rms_before for e in refined])), 1
         )
         if refined
         else None,
         "rms_after_mm": round(
-            1e3 * float(np.mean([w.rms_after for w in refined])), 1
+            1e3 * float(np.mean([e.rms_after for e in refined])), 1
         )
         if refined
         else None,
     }
     out = {
-        "schema": "roomform.refined-walls.v0",
+        "schema": "roomform.refined-walls.v1",
         "report": report,
-        "walls": [
+        "z0": z_lo,
+        "z1": z_hi,
+        "rooms": [
             {
-                "p0": w.endpoints()[0].tolist(),
-                "p1": w.endpoints()[1].tolist(),
-                "z0": w.z0,
-                "z1": w.z1,
-                "refined": w.refined,
-                "support": w.n_support,
-                "rms_mm": round(1e3 * w.rms_after, 1) if w.rms_after else None,
-                "openings": _wall_openings(w, opening_cells, vox),
+                "loop": [
+                    {
+                        "p0": e.p0.tolist(),
+                        "p1": e.p1.tolist(),
+                        "refined": e.refined,
+                        "support": e.n_support,
+                        "rms_mm": round(1e3 * e.rms_after, 1)
+                        if e.rms_after
+                        else None,
+                        "openings": _edge_openings(e, opening_cells, vox),
+                    }
+                    for e in r["edges"]
+                ]
             }
-            for w in walls
+            for r in rooms
+        ],
+        "partitions": [
+            {
+                "p0": e.p0.tolist(),
+                "p1": e.p1.tolist(),
+                "refined": e.refined,
+                "support": e.n_support,
+                "rms_mm": round(1e3 * e.rms_after, 1) if e.rms_after else None,
+                "openings": _edge_openings(e, opening_cells, vox),
+            }
+            for e in partitions
         ],
     }
     with open(os.path.join(scene_dir, "refined.json"), "w") as fh:
         json.dump(out, fh, indent=2)
     return report
+
+
+def _interior_walls(node_wall, vox, rooms, cloud_xy, tree):
+    """Partition walls the room loops cannot see.
+
+    Interior walls sit between doorway-connected rooms, so they never
+    appear on a floor contour. Fit them as standalone segments from
+    wall cells far from every loop edge, and keep one only when the
+    scan evidence confirms it (refined) or it is long enough to be
+    structure rather than noise."""
+    from scipy import ndimage as ndi
+
+    foot = node_wall.any(2)
+    cells = np.argwhere(foot)
+    if not len(cells):
+        return []
+    pts = (cells.astype(np.float64) + 0.5) * vox
+    edges = [e for r in rooms for e in r["edges"]]
+    far = np.ones(len(pts), bool)
+    for e in edges:
+        mid = (e.p0 + e.p1) / 2
+        rel = pts - mid
+        u, d = rel @ e.direction, rel @ e.normal
+        near = (np.abs(d) < 5 * vox) & (np.abs(u) < e.length / 2 + 5 * vox)
+        far &= ~near
+    interior = np.zeros_like(foot)
+    interior[tuple(cells[far].T)] = True
+    labels, n = ndi.label(interior, structure=np.ones((3, 3)))
+    out = []
+    for lab in range(1, n + 1):
+        seg = np.argwhere(labels == lab)
+        if len(seg) < 12:
+            continue
+        p = (seg.astype(np.float64) + 0.5) * vox
+        center = p.mean(0)
+        q = p - center
+        direction = np.linalg.eigh(q.T @ q)[1][:, -1]
+        u = q @ direction
+        # straightness gate: a chord through an arc or a line chained
+        # across scattered cells has high perpendicular residual
+        resid = q @ np.array([-direction[1], direction[0]])
+        if float(np.sqrt(np.mean(resid**2))) > 1.5 * vox:
+            continue
+        e = Edge(center + direction * u.min(), center + direction * u.max())
+        # a partition lies inside a room by definition; anything outside
+        # every loop is window-band or exterior residue
+        mid = (e.p0 + e.p1) / 2
+        inside = False
+        for r in rooms:
+            poly = np.array([ed.p0 for ed in r["edges"]])
+            j = np.arange(len(poly))
+            k = (j + 1) % len(poly)
+            cond = (poly[j, 1] > mid[1]) != (poly[k, 1] > mid[1])
+            xs = poly[j, 0] + (mid[1] - poly[j, 1]) / (
+                poly[k, 1] - poly[j, 1] + 1e-12
+            ) * (poly[k, 0] - poly[j, 0])
+            if (cond & (mid[0] < xs)).sum() % 2 == 1:
+                inside = True
+                break
+        if not inside:
+            continue
+        e.snap(cloud_xy, tree)
+        if e.refined or e.length > 1.0:
+            out.append(e)
+    return out
 
 
 def main() -> None:
